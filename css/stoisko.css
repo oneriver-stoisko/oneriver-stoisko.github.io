@@ -403,3 +403,7 @@ a.chip[aria-pressed="true"] { color: #fff; }
 .nowe .naglowek-akcje { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
 .nowe .naglowek-akcje .kontekst, .nowe .naglowek-akcje .maly { font-size: 13px; padding: 4px 10px; min-height: 32px; }
 .nowe .typ-sprzedazy .chip { min-height: 42px; padding: 6px 16px; }
+.magazyn-zam { align-items: center; margin: -4px 0 10px; gap: 6px; }
+.magazyn-zam .etykieta-mag { font-size: 13px; color: var(--szary); font-weight: 600; }
+.magazyn-zam .chip { min-height: 32px; padding: 3px 10px; font-size: 13px; }
+.magazyn-zam small { color: var(--szary); font-size: 12px; }

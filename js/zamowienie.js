@@ -223,7 +223,7 @@ async function przekazWysylke(form, kanal) {
   if (!kto) { toast('Wybierz, kto wysyła.', 'blad'); return; }
   if (!kod && !(await okno('Bez kodu nadania?', '<p>Kod z aplikacji InPost nie jest wpisany. Wysłać wiadomość bez niego?</p>',
     [{ etykieta: 'Wpiszę kod', wartosc: false, klasa: 'drugorzedny', autofocus: true }, { etykieta: 'Wyślij bez kodu', wartosc: true }]))) return;
-  const nowy = { ...z, kod_nadania: kod, realizuje: kto, nadano: z.nadano || dataLok() };
+  const nowy = { ...z, kod_nadania: kod, realizuje: kto, nadano: z.nadano || dataLok(), ...(z.typ === 'wysylka' && kto ? { magazyn: kto === 'Grażynka' ? 'GR' : 'INC' } : {}) };
   const tekst = trescDlaWysylki(nowy, pozycjeZamowienia(z.id), klient(z.klient_id));
   // najpierw udostępnienie (przeglądarka pozwala na nie tylko zaraz po dotknięciu), potem zapis
   if (kanal === 'udostepnij' && navigator.share) {

@@ -8,7 +8,7 @@ import { $, $$, esc, zaokr, kwotaTxt, iloscTxt, liczba, liczbaNaTekst, uuid, dat
 import { dane, wczytaj, szukajProduktow, nastepnyNumer, zapamietajNumer, klientPoTelefonie, telefonE164, klient as klientId,
   produktSymbolu, cenaKlienta, opisCenKlienta, zamowienie, pozycjeZamowienia, ustawienieTekst } from './dane.js';
 import { ustawienia, gotowe } from './api.js';
-import { FORMY, STATUSY, OSOBY_WYSYLKI, SYMBOL_TRANSPORTU, TRANSPORT_DOMYSLNY, czyTransport, symbolMagazynu } from './konfiguracja.js';
+import { FORMY, STATUSY, OSOBY_WYSYLKI, SYMBOL_TRANSPORTU, TRANSPORT_DOMYSLNY, czyTransport, symbolMagazynu, MAGAZYNY } from './konfiguracja.js';
 import { rozpoznaj } from './inpost.js';
 import * as sync from './sync.js';
 
@@ -21,7 +21,7 @@ const transportDomyslny = () => {
 };
 const pusty = () => ({
   tryb: 'nowe', edytowane: '', typ: 'miejsce', koszyk: [], klientId: '', telefon: '', nazwa: '', email: '', uwagi: '',
-  szukaj: '', grupa: '', paczkomat: '', adres: '', nrPrzesylki: '', kodNadania: '', transportTxt: '', realizuje: '',
+  szukaj: '', grupa: '', paczkomat: '', adres: '', nrPrzesylki: '', kodNadania: '', transportTxt: '', realizuje: '', magazyn: '',
   platnosci: [{ k: uuid(), forma: 'Przelew', kwotaTxt: '', zaplacone: false }],
 });
 
@@ -198,6 +198,20 @@ function htmlPlatnosci() {
       : 'Całość zapłacona – wiadomość będzie potwierdzeniem zakupu.'}</p>`;
 }
 
+/** Magazyn zamówienia: wybrany ręcznie → przy wysyłce wg osoby wysyłającej (Grażynka = GR, Olek = INC) → z Ustawień. */
+function magazynZamowienia() {
+  if (s.magazyn) return s.magazyn;
+  if (s.typ === 'wysylka' && s.realizuje) return s.realizuje === 'Grażynka' ? 'GR' : 'INC';
+  return symbolMagazynu(ustawienia().magazyn);
+}
+function htmlMagazynu() {
+  const m = magazynZamowienia();
+  return `<span class="etykieta-mag">Magazyn:</span>${MAGAZYNY.map(([sym, e]) =>
+    `<button type="button" class="chip" data-akcja="magazyn" data-mag="${sym}" aria-pressed="${m === sym}" title="${esc(e)}">${sym}${sym === 'GR' ? ' Grażynka' : sym === 'INC' ? ' Elsterska' : ''}</button>`).join('')}
+    ${!s.magazyn && s.typ === 'wysylka' && s.realizuje ? `<small>wg „kto wysyła”</small>` : ''}`;
+}
+const odswiezMagazyn = () => { const el = $('#magazyn-zam'); if (el) el.innerHTML = htmlMagazynu(); };
+
 export function render(arg) {
   if (!gotowe()) { location.replace('#ustawienia'); return; }
   if (location.hash.startsWith('#edytuj/')) {
@@ -223,6 +237,7 @@ export function render(arg) {
       <button type="button" class="chip" data-akcja="typ" data-typ="miejsce" aria-pressed="${s.typ === 'miejsce'}">Na miejscu</button>
       <button type="button" class="chip" data-akcja="typ" data-typ="wysylka" aria-pressed="${s.typ === 'wysylka'}">Wysyłka InPost</button>
     </div>
+    <div class="chipy male magazyn-zam" id="magazyn-zam">${htmlMagazynu()}</div>
     <div class="uklad-zam">
       <div class="kolumna-produkty">
         <div id="wysylka">${htmlWysylki()}</div>
@@ -444,9 +459,14 @@ async function klik(e) {
     $$('.typ-sprzedazy .chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.typ === s.typ)));
     odswiezWysylke();
     odswiezSume();
+    odswiezMagazyn();
   } else if (akcja === 'realizuje') {
     s.realizuje = s.realizuje === b.dataset.osoba ? '' : b.dataset.osoba;
     $$('[data-akcja="realizuje"]').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.osoba === s.realizuje)));
+    odswiezMagazyn();
+  } else if (akcja === 'magazyn') {
+    s.magazyn = magazynZamowienia() === b.dataset.mag && s.magazyn ? '' : b.dataset.mag;
+    odswiezMagazyn(); zachowaj();
   } else if (akcja === 'grupa') {
     s.grupa = s.grupa === b.dataset.grupa ? '' : b.dataset.grupa;
     $$('.grupy .chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.grupa === s.grupa)));
@@ -532,7 +552,7 @@ function zaladujDoEdycji(id) {
     })),
     transPosId: trans?.id || '', transportTxt: trans ? liczbaNaTekst(num(trans.cena)) : (num(z.koszt_dostawy) ? liczbaNaTekst(num(z.koszt_dostawy)) : ''),
     klientId: k ? String(k.id) : '', telefon: k?.telefon || '', nazwa: k?.nazwa || '', email: k?.email || '', uwagi: z.uwagi || '',
-    paczkomat, adres: resztaAdresu.join(', '), nrPrzesylki: z.nr_przesylki || '', kodNadania: z.kod_nadania || '', realizuje: z.realizuje || '',
+    paczkomat, adres: resztaAdresu.join(', '), nrPrzesylki: z.nr_przesylki || '', kodNadania: z.kod_nadania || '', realizuje: z.realizuje || '', magazyn: z.magazyn ? symbolMagazynu(z.magazyn) : '',
     platnosci: platnosci.map((p, i) => ({ k: uuid(), forma: p.forma, kwotaTxt: i === platnosci.length - 1 ? '' : liczbaNaTekst(num(p.kwota)), zaplacone: Boolean(p.zaplacone) })),
   };
   return true;
@@ -637,7 +657,7 @@ async function zatwierdz(kanal, przycisk) {
       ...(stare || {}),
       id: numer, urzadzenie: stare?.urzadzenie || u.kto, podmiot: stare?.podmiot || u.podmiot, zrodlo: stare?.zrodlo || 'stoisko',
       data: stare?.data || dataLok(), klient_id: klientIdZ, klient_nowy: stare ? stare.klient_nowy : nowy,
-      wydarzenie: stare?.wydarzenie ?? u.wydarzenie, magazyn: stare?.magazyn ?? symbolMagazynu(u.magazyn),
+      wydarzenie: stare?.wydarzenie ?? u.wydarzenie, magazyn: magazynZamowienia(),
       typ: wysylka ? 'wysylka' : 'miejsce',
       forma_platnosci: formy.length > 1 ? 'Mieszana' : (formy[0] || kw[0].forma),
       platnosci: JSON.stringify(kw.map(p => ({ forma: p.forma, kwota: p.kwota, zaplacone: ZAPLACONE_ZAWSZE.has(p.forma) || Boolean(p.zaplacone) }))),
