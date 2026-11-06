@@ -1,7 +1,7 @@
 // Stałe aplikacji stoiska. Dane do płatności są domyślne dla wszystkich urządzeń;
 // na danym urządzeniu można je zmienić w Ustawieniach.
 
-export const WERSJA = '0.6.0';
+export const WERSJA = '0.6.1';
 
 // Stoisko ma własny adres (osobna „strona” dla telefonu – inaczej Chrome na Androidzie myli je z Finansami).
 export const ADRES_STOISKA = 'https://oneriver-stoisko.github.io/';
@@ -40,6 +40,17 @@ export const STATUSY = {
 };
 
 export const PODMIOTY = ['INCO', 'OFI'];
+
+// Magazyn sprzedaży = kasa, do której trafia gotówka (rozliczenie kasy w Finansach). Wartość w ZAMOWIENIA.magazyn = symbol z Subiekta.
+// Nazwy jak w Subiekcie GT (INCO: INC, GR; OFI: ONE). Kasa: INC i ONE – Elsterska, GR – Grażynka.
+export const MAGAZYNY = [['INC', 'INC - Główny (Elsterska)'], ['GR', 'GR - Grażanka'], ['ONE', 'ONE - Główny (OFI)']];
+/** Symbol magazynu z dawnego wpisu tekstowego („Główny”, „INC Główny”, „Grażanka” …). */
+export const symbolMagazynu = m => {
+  const t = String(m || '');
+  if (/^\s*gr\b|gra[zż]/i.test(t)) return 'GR';
+  if (/^\s*one\b/i.test(t)) return 'ONE';
+  return 'INC';
+};
 
 // Kto realizuje wysyłkę zamówień (wybór przy zamówieniu; trafia do kolumny ZAMOWIENIA.realizuje).
 export const OSOBY_WYSYLKI = ['Olek', 'Grażynka'];

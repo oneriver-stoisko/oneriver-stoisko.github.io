@@ -8,7 +8,7 @@ import { $, $$, esc, zaokr, kwotaTxt, iloscTxt, liczba, liczbaNaTekst, uuid, dat
 import { dane, wczytaj, szukajProduktow, nastepnyNumer, zapamietajNumer, klientPoTelefonie, telefonE164, klient as klientId,
   produktSymbolu, cenaKlienta, opisCenKlienta, zamowienie, pozycjeZamowienia, ustawienieTekst } from './dane.js';
 import { ustawienia, gotowe } from './api.js';
-import { FORMY, STATUSY, OSOBY_WYSYLKI, SYMBOL_TRANSPORTU, TRANSPORT_DOMYSLNY, czyTransport } from './konfiguracja.js';
+import { FORMY, STATUSY, OSOBY_WYSYLKI, SYMBOL_TRANSPORTU, TRANSPORT_DOMYSLNY, czyTransport, symbolMagazynu } from './konfiguracja.js';
 import { rozpoznaj } from './inpost.js';
 import * as sync from './sync.js';
 
@@ -210,7 +210,7 @@ export function render(arg) {
   }
   const u = ustawienia();
   const edycja = s.tryb === 'edycja';
-  const kontekst = [u.wydarzenie, u.magazyn, u.podmiot].filter(Boolean).join(' · ');
+  const kontekst = [u.wydarzenie, symbolMagazynu(u.magazyn), u.podmiot].filter(Boolean).join(' · ');
   $('#widok').innerHTML = `
   <section class="ekran nowe">
     <header class="naglowek-zam">
@@ -637,7 +637,7 @@ async function zatwierdz(kanal, przycisk) {
       ...(stare || {}),
       id: numer, urzadzenie: stare?.urzadzenie || u.kto, podmiot: stare?.podmiot || u.podmiot, zrodlo: stare?.zrodlo || 'stoisko',
       data: stare?.data || dataLok(), klient_id: klientIdZ, klient_nowy: stare ? stare.klient_nowy : nowy,
-      wydarzenie: stare?.wydarzenie ?? u.wydarzenie, magazyn: stare?.magazyn ?? u.magazyn,
+      wydarzenie: stare?.wydarzenie ?? u.wydarzenie, magazyn: stare?.magazyn ?? symbolMagazynu(u.magazyn),
       typ: wysylka ? 'wysylka' : 'miejsce',
       forma_platnosci: formy.length > 1 ? 'Mieszana' : (formy[0] || kw[0].forma),
       platnosci: JSON.stringify(kw.map(p => ({ forma: p.forma, kwota: p.kwota, zaplacone: ZAPLACONE_ZAWSZE.has(p.forma) || Boolean(p.zaplacone) }))),

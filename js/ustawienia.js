@@ -6,7 +6,7 @@ import * as sync from './sync.js';
 import { ustawienia, zapiszUstawienia, polaczone, gotowe, wywolaj, wersjaApi, adresZFinansow } from './api.js';
 import { $, esc, toast, okno } from './util.js';
 import { dane, wczytaj, nastepnyNumer, kodUzywanyPrzez } from './dane.js';
-import { WERSJA, WYMAGANE_API, PODMIOTY, PLATNOSC_DOMYSLNA } from './konfiguracja.js';
+import { WERSJA, WYMAGANE_API, PODMIOTY, PLATNOSC_DOMYSLNA, MAGAZYNY, symbolMagazynu } from './konfiguracja.js';
 
 function render(komunikat = '', klasa = '') {
   const u = ustawienia();
@@ -41,11 +41,11 @@ function render(komunikat = '', klasa = '') {
       <label class="pole"><span class="etykieta">Podmiot</span>
         <select name="podmiot">${PODMIOTY.map(p => `<option ${u.podmiot === p ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
       <label class="pole"><span class="etykieta">Magazyn</span>
-        <input name="magazyn" list="magazyny" autocomplete="off" value="${esc(u.magazyn)}" placeholder="np. INC Główny">
-        <datalist id="magazyny">${dane.magazyny.map(m => `<option value="${esc(m)}">`).join('')}</datalist></label>
+        <select name="magazyn">${MAGAZYNY.map(([s, e]) => `<option value="${s}" ${symbolMagazynu(u.magazyn) === s ? 'selected' : ''}>${esc(e)}</option>`).join('')}</select>
+        <span class="podpowiedz">Gotówka ze sprzedaży bez wydarzenia rozlicza się w kasie tego magazynu.</span></label>
       <label class="pole"><span class="etykieta">Wydarzenie</span>
         <input name="wydarzenie" autocomplete="off" value="${esc(u.wydarzenie)}" placeholder="np. Kiermasz Koneser, grudzień 2026">
-        <span class="podpowiedz">Zapisuje się przy każdym zamówieniu – zmień przed kolejnym wydarzeniem.</span></label>
+        <span class="podpowiedz">Zapisuje się przy każdym zamówieniu. Wpisane wydarzenie = gotówka rozliczana jako to wydarzenie; puste = sprzedaż w magazynie. Wyczyść po wydarzeniu.</span></label>
 
       <h2>Dane do płatności w wiadomości</h2>
       <label class="pole"><span class="etykieta">Odbiorca przelewu</span>
@@ -102,7 +102,7 @@ async function zapisz(form) {
     konto: f.konto.value.trim(),
     blik: f.blik.value.trim(),
   };
-  zapiszUstawienia({ url, token, kto, kod, podmiot: f.podmiot.value, magazyn: f.magazyn.value.trim(), wydarzenie: f.wydarzenie.value.trim(), platnosc });
+  zapiszUstawienia({ url, token, kto, kod, podmiot: f.podmiot.value, magazyn: f.magazyn.value, wydarzenie: f.wydarzenie.value.trim(), platnosc });
 
   const nowePolaczenie = url !== stare.url || token !== stare.token;
   if (nowePolaczenie) {

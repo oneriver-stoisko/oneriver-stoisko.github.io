@@ -4,12 +4,13 @@
 import { dane, klient, pozycjeZamowienia, produktSymbolu, telefonE164 } from './dane.js';
 import { platnosciZamowienia } from './wiadomosc.js';
 import { ustawienia } from './api.js';
-import { czyTransport, SYMBOL_TRANSPORTU, STATUSY } from './konfiguracja.js';
+import { czyTransport, SYMBOL_TRANSPORTU, STATUSY, symbolMagazynu } from './konfiguracja.js';
 import { trescEpp, naCp1250, FIRMA_INCO } from './epp.js';
 import { num, dataLok } from './util.js';
 import * as sync from './sync.js';
 
 const FIRMY = { INCO: FIRMA_INCO, OFI: { ...FIRMA_INCO, symbol: 'OFI', nazwa: 'OFI_OneRiver' } };
+const MAG_SGT = { INC: ['INC', 'Glowny', 'Magazyn glowny'], GR: ['GR', 'Grazanka', 'Grazanka'], ONE: ['ONE', 'Glowny', 'Magazyn glowny'] };
 const VAT = 23; // wszystkie pozycje cennika mają 23% (sprawdzone w „Cennik OneRiver”)
 
 const symbolKontrahenta = k => {
@@ -60,7 +61,7 @@ export function dokumentZamowienia(z) {
     numer: Number(String(z.id).split('-').pop()) || 1, pelnyNumer: String(z.id), numerZamowienia: String(z.id), data,
     miejsce: 'Warszawa', kategoria: 'Detal', podtytul: 'Sprzedaz detaliczna', wystawca: ustawienia().kto || 'Stoisko',
     terminDni: 7, uwagi: uwagi.slice(0, 255), kontrahent, platnosci: pl, pozycje,
-  }, podmiot: String(z.podmiot || 'INCO').toUpperCase() === 'OFI' ? 'OFI' : 'INCO' };
+  }, podmiot: String(z.podmiot || 'INCO').toUpperCase() === 'OFI' ? 'OFI' : 'INCO', magazyn: symbolMagazynu(z.magazyn) };
 }
 
 function pobierzPlik(nazwa, bajty) {
@@ -82,16 +83,19 @@ export async function eksportujEpp(ids) {
     .sort((a, b) => String(a.data).localeCompare(String(b.data)) || String(a.id).localeCompare(String(b.id), 'pl', { numeric: true })).forEach(z => {
     const w = dokumentZamowienia(z);
     if (w.blad) { bledy.push(w.blad); return; }
-    if (!grupy.has(w.podmiot)) grupy.set(w.podmiot, []);
-    grupy.get(w.podmiot).push(w.dokument);
+    const klucz = w.podmiot + '|' + w.magazyn;
+    if (!grupy.has(klucz)) grupy.set(klucz, []);
+    grupy.get(klucz).push(w.dokument);
     ok.push(z);
   });
   if (!ok.length) return { wyeksportowane: [], bledy };
   const kiedy = new Date();
   const znacznik = `${dataLok()}_${String(kiedy.getHours()).padStart(2, '0')}${String(kiedy.getMinutes()).padStart(2, '0')}`;
-  grupy.forEach((dok, podmiot) => {
-    const nazwa = dok.length === 1 ? `Stoisko_${dok[0].pelnyNumer}.epp` : `Stoisko_${podmiot}_${znacznik}_${dok.length}szt.epp`;
-    pobierzPlik(nazwa, naCp1250(trescEpp(FIRMY[podmiot], dok, kiedy)));
+  grupy.forEach((dok, klucz) => {
+    const [podmiot, mag] = klucz.split('|');
+    const [magazyn, magazynNazwa, magazynOpis] = MAG_SGT[mag] || MAG_SGT.INC;
+    const nazwa = dok.length === 1 ? `Stoisko_${dok[0].pelnyNumer}.epp` : `Stoisko_${podmiot}_${mag}_${znacznik}_${dok.length}szt.epp`;
+    pobierzPlik(nazwa, naCp1250(trescEpp({ ...FIRMY[podmiot], magazyn, magazynNazwa, magazynOpis }, dok, kiedy)));
   });
   await sync.zapisz([{ karta: 'ZAMOWIENIA', wiersze: ok.map(z => ({ ...z, epp_eksport: kiedy.toISOString() })) }]);
   return { wyeksportowane: ok.map(z => z.id), bledy };
