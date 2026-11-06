@@ -86,7 +86,8 @@ const zaplaconoNaMiejscu = kw => zaokr(kw.reduce((a, p) => a + (ZAPLACONE_ZAWSZE
 
 function htmlWynikow() {
   if (!dane.produkty.length) return `<p class="pusto">Katalog jest pusty. Połącz się z internetem, żeby go pobrać, albo dodaj pozycję spoza cennika.</p>`;
-  const lista = szukajProduktow(s.szukaj, s.grupa, s.szukaj || s.grupa ? 60 : 24);
+  if (!s.szukaj.trim() && !s.grupa) return `<p class="podpowiedz-szukaj">Wpisz kilka liter nazwy lub symbolu – np. <b>wash 6</b>, <b>nukini</b>, <b>kuripe</b> – albo wybierz kategorię.</p>`;
+  const lista = szukajProduktow(s.szukaj, s.grupa, 50);
   if (!lista.length) return `<p class="pusto">Nic nie pasuje do „${esc(s.szukaj)}”. Możesz dodać pozycję spoza cennika.</p>`;
   const wKoszyku = new Map();
   s.koszyk.forEach(p => { if (p.symbol) wKoszyku.set(p.symbol, (wKoszyku.get(p.symbol) || 0) + (ilosc(p) || 0)); });
@@ -100,11 +101,9 @@ function htmlWynikow() {
       <b>${c !== w.cena ? `<s>${esc(kwotaTxt(w.cena))}</s> ` : ''}${esc(kwotaTxt(c))}</b>
       ${ile ? `<span class="w-ile">×${esc(iloscTxt(ile))}</span>` : ''}</button>`;
   };
-  return `${!s.szukaj && !s.grupa ? '<p class="podtytul">Najczęściej sprzedawane</p>' : ''}
-    <ul class="produkty">${lista.map(p => `<li class="produkt">
+  return `<ul class="produkty kompakt">${lista.map(p => `<li class="produkt">
       <div class="p-gora">
-        ${p.zdjecie ? `<img class="p-zdj" src="${esc(p.zdjecie)}" alt="" loading="lazy">` : ''}
-        <span class="p-nazwa">${esc(p.produkt)}<small>${esc(p.kategoria)}${p.warianty.length === 1 ? ' · ' + esc(p.warianty[0].symbol) : ''}</small></span>
+        <span class="p-nazwa">${esc(p.produkt)} <small>${esc(p.kategoria)}${p.warianty.length === 1 ? ' · ' + esc(p.warianty[0].symbol) : ''}</small></span>
       </div>
       <div class="warianty">${p.warianty.map(przycisk).join('')}</div>
     </li>`).join('')}</ul>`;
@@ -227,8 +226,11 @@ export function render(arg) {
     <div class="uklad-zam">
       <div class="kolumna-produkty">
         <div id="wysylka">${htmlWysylki()}</div>
-        <label class="pole szukaj"><span class="sr">Szukaj produktu</span>
-          <input type="search" data-pole="szukaj" value="${esc(s.szukaj)}" placeholder="Szukaj: nazwa lub symbol" autocomplete="off" enterkeyhint="search"></label>
+        <div class="szukaj-wiersz">
+          <label class="pole szukaj"><span class="sr">Szukaj produktu</span>
+            <input type="search" data-pole="szukaj" value="${esc(s.szukaj)}" placeholder="Szukaj produktu: nazwa, symbol, gramatura" autocomplete="off" enterkeyhint="search"></label>
+          <button type="button" class="wyczysc-szukaj" data-akcja="wyczysc-szukaj" aria-label="Wyczyść wyszukiwanie"${s.szukaj ? '' : ' hidden'}>×</button>
+        </div>
         ${dane.grupy.length ? `<div class="chipy male grupy">${dane.grupy.map(g => `<button type="button" class="chip" data-akcja="grupa" data-grupa="${esc(g)}" aria-pressed="${s.grupa === g}">${esc(g)}</button>`).join('')}</div>` : ''}
         <div id="wyniki">${htmlWynikow()}</div>
         <button type="button" class="drugorzedny szeroki" data-akcja="spoza">+ Pozycja spoza cennika</button>
@@ -370,7 +372,7 @@ function wejscie(e) {
   const pole = e.target.dataset.pole;
   if (!pole || pole === 'zrzuty') return;
   const v = e.target.value;
-  if (pole === 'szukaj') { s.szukaj = v; odswiezWyniki(); }
+  if (pole === 'szukaj') { s.szukaj = v; odswiezWyniki(); const x = $('.wyczysc-szukaj'); if (x) x.hidden = !v; }
   else if (pole === 'telefon') {
     s.telefon = v;
     const k = klientPoTelefonie(v);
@@ -432,6 +434,10 @@ async function klik(e) {
   if (!b) return;
   const akcja = b.dataset.akcja;
   if (akcja === 'dodaj') dodaj(b.dataset.symbol);
+  else if (akcja === 'wyczysc-szukaj') {
+    s.szukaj = ''; zachowaj();
+    const i = $('[data-pole=szukaj]'); i.value = ''; b.hidden = true; odswiezWyniki(); i.focus();
+  }
   else if (akcja === 'do-koszyka') $('#panel-koszyka').scrollIntoView({ behavior: 'smooth', block: 'start' });
   else if (akcja === 'typ') {
     s.typ = b.dataset.typ;

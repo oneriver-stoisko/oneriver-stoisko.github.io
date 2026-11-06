@@ -129,7 +129,9 @@ function zbudujCennik(katalog, dokumenty, pozycje) {
   });
   dane.produkty = [...mapa.values()].map(p => {
     p.warianty.sort((a, b) => wagaWariantu(a.wariant) - wagaWariantu(b.wariant));
-    p.szukaj = normalizuj([p.produkt, p.kategoria, ...p.warianty.map(w => w.symbol + ' ' + w.nazwa)].join(' '));
+    p.szukaj = normalizuj([p.produkt, p.kategoria, ...p.warianty.map(w => w.symbol + ' ' + w.nazwa + ' ' + (w.wariant || ''))].join(' '));
+    p.szukaj += ' ' + p.szukaj.replace(/(\d)\s+(g|ml|kg|cm|szt)\b/g, '$1$2');
+    p.nazwaSzuk = normalizuj(p.produkt);
     return p;
   }).sort((a, b) => b.sprzedano - a.sprzedano || a.produkt.localeCompare(b.produkt, 'pl'));
 
@@ -139,9 +141,18 @@ function zbudujCennik(katalog, dokumenty, pozycje) {
 
 export function szukajProduktow(tekst, kategoria, limit = 30) {
   const slowa = normalizuj(tekst).split(/\s+/).filter(Boolean);
+  const ocena = p => {
+    if (!slowa.length) return 0;
+    let o = 0;
+    if (p.nazwaSzuk.startsWith(slowa[0])) o += 4;
+    else if (p.nazwaSzuk.split(/\s+/).some(w => w.startsWith(slowa[0]))) o += 2;
+    o += slowa.filter(s => p.nazwaSzuk.includes(s)).length;
+    return o;
+  };
   return dane.produkty
     .filter(p => (!kategoria || p.kategoria === kategoria) && slowa.every(s => p.szukaj.includes(s)))
-    .slice(0, limit);
+    .map(p => [ocena(p), p]).sort((a, b) => b[0] - a[0] || a[1].produkt.localeCompare(b[1].produkt, 'pl'))
+    .slice(0, limit).map(x => x[1]);
 }
 
 export const produktSymbolu = symbol => dane.cennik.find(p => p.symbol === symbol);
