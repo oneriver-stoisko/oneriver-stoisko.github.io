@@ -4,7 +4,9 @@
 import { ustawienia } from './api.js';
 import { PLATNE_POZNIEJ, czyTransport } from './konfiguracja.js';
 import { kwotaTxt, iloscTxt, num } from './util.js';
-import { telefonE164 } from './dane.js';
+import { telefonE164, klient } from './dane.js';
+
+export const linkSledzenia = nr => `https://inpost.pl/sledzenie-przesylek?number=${encodeURIComponent(String(nr).replace(/\D/g, ''))}`;
 
 const MAKS_POZYCJI = 8;
 const produkty = pozycje => pozycje.filter(p => !czyTransport(p.symbol));
@@ -32,7 +34,10 @@ export function trescWiadomosci(zam, pozycje) {
     const koszt = num(zam.koszt_dostawy);
     linie.push(`Dostawa – ${zam.dostawa}: ${koszt ? kwotaTxt(koszt) : 'gratis'}`);
     if (zam.adres_dostawy) linie.push(`${/paczkomat/i.test(zam.dostawa) ? 'Paczkomat' : 'Adres'}: ${String(zam.adres_dostawy).replace(/\s*\n\s*/g, ', ')}`);
-    if (zam.nr_przesylki) linie.push(`Nr przesyłki InPost: ${zam.nr_przesylki}`);
+    if (zam.nr_przesylki) {
+      linie.push(`Nr przesyłki InPost: ${zam.nr_przesylki}`, `Śledzenie: ${linkSledzenia(zam.nr_przesylki)}`);
+      if (/@/.test(klient(zam.klient_id)?.email || '')) linie.push('Gdy paczka zostanie nadana w paczkomacie, wyślemy Ci e-mail.');
+    }
   }
   linie.push(`Razem: ${kwotaTxt(num(zam.suma_brutto))}`, '');
 

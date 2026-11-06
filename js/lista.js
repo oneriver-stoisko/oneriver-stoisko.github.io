@@ -11,7 +11,8 @@ import { toast } from './util.js';
 
 // wybor: null albo Set numerów zamówień zaznaczonych do eksportu EPP
 const stan = { filtr: null, szukaj: '', wybor: null };
-const FILTRY = [['nowe', 'Do potwierdzenia'], ['dzis', 'Dziś'], ['urzadzenie', 'To urządzenie'], ['nieoplacone', 'Czekają na płatność'], ['subiekt', 'Do Subiekta'], ['wszystkie', 'Wszystkie']];
+const FILTRY = [['nowe', 'Do potwierdzenia'], ['dzis', 'Dziś'], ['urzadzenie', 'To urządzenie'], ['nieoplacone', 'Czekają na płatność'], ['wdrodze', 'Przesyłki w drodze'], ['subiekt', 'Do Subiekta'], ['wszystkie', 'Wszystkie']];
+const wDrodze = z => z.status !== STATUSY.anulowane && (z.typ === 'wysylka' || z.dostawa) && !z.przesylka_koniec;
 const doSubiekta = z => z.status !== STATUSY.anulowane && !z.epp_eksport && !z.nr_dok_sgt;
 const klasaStatusu = st => ({ [STATUSY.nowe]: 'nowe', [STATUSY.czeka]: 'czeka', [STATUSY.oplacone]: 'oplacone', [STATUSY.anulowane]: 'anulowane' }[st] || '');
 
@@ -25,6 +26,7 @@ function lista() {
     if (stan.filtr === 'nieoplacone' && z.status !== STATUSY.czeka) return false;
     if (stan.filtr === 'nowe' && z.status !== STATUSY.nowe) return false;
     if (stan.filtr === 'subiekt' && !doSubiekta(z)) return false;
+    if (stan.filtr === 'wdrodze' && !wDrodze(z)) return false;
     if (!slowa.length) return true;
     const k = klient(z.klient_id);
     const tekst = normalizuj([z.id, z.nr_dok_sgt, z.wydarzenie, k?.nazwa, k?.telefon, k?.email].join(' '));
@@ -50,7 +52,7 @@ function htmlListy() {
       const sgt = z.nr_dok_sgt ? ` · ${esc(z.nr_dok_sgt)}` : (z.epp_eksport ? ' · EPP ✓' : '');
       return `<li class="${w ? 'wybor' : ''}">${otw}
         <span class="lz-numer">${esc(z.id)}${czekajace.has('ZAMOWIENIA|' + z.id) ? ' <i class="do-wyslania" title="Czeka na wysłanie do arkusza">●</i>' : ''}</span>
-        <span class="lz-klient">${esc(k?.nazwa || (k ? telefonCzytelny(k.telefon) : 'bez klienta'))}<small>${esc(dataKrotko(z.data))} · ${esc(z.forma_platnosci || '')}${z.wydarzenie ? ' · ' + esc(z.wydarzenie) : ''}${z.dostawa ? ' · ' + (z.nadano ? `wysyła ${esc(z.realizuje || '')}` : 'do wysłania') : ''}${sgt}</small></span>
+        <span class="lz-klient">${esc(k?.nazwa || (k ? telefonCzytelny(k.telefon) : 'bez klienta'))}<small>${esc(dataKrotko(z.data))} · ${esc(z.forma_platnosci || '')}${z.wydarzenie ? ' · ' + esc(z.wydarzenie) : ''}${z.dostawa || z.typ === 'wysylka' ? ' · ' + (z.status_przesylki_opis ? `<span class="przesylka-mini">📦 ${esc(z.status_przesylki_opis)}</span>` : z.nr_przesylki ? 'nadana – czeka na status' : z.nadano ? `wysyła ${esc(z.realizuje || '')}` : 'do wysłania') : ''}${sgt}</small></span>
         <span class="lz-kwota"><b>${esc(kwotaTxt(num(z.suma_brutto)))}</b><span class="status ${klasaStatusu(z.status)}">${esc(etykietaStatusu(z.status))}</span></span>
       ${w ? '</label>' : '</a>'}</li>`;
     }).join('')}</ul>`;

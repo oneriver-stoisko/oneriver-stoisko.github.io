@@ -6,8 +6,8 @@ import { $, $$, esc, kwotaTxt, iloscTxt, num, zaokr, liczba, liczbaNaTekst, data
 import { wczytaj, zamowienie, pozycjeZamowienia, klient, telefonE164, telefonCzytelny, opisCenKlienta } from './dane.js';
 import { STATUSY, PLATNE_POZNIEJ, FORMY, ETYKIETY_STATUSOW, OSOBY_WYSYLKI, czyTransport } from './konfiguracja.js';
 import { eksportujEpp } from './eksport-epp.js';
-import { ustawienia } from './api.js';
-import { trescWiadomosci, trescDlaWysylki, linkSms, linkWhatsApp, linkWhatsAppDoGrupy, otworzLink, platnosciZamowienia } from './wiadomosc.js';
+import { ustawienia, wywolaj } from './api.js';
+import { trescWiadomosci, trescDlaWysylki, linkSms, linkWhatsApp, linkWhatsAppDoGrupy, otworzLink, platnosciZamowienia, linkSledzenia } from './wiadomosc.js';
 import { dataLok } from './util.js';
 import * as sync from './sync.js';
 
@@ -158,6 +158,7 @@ function render(arg) {
             ${z.dostawa ? `<div><dt>Dostawa</dt><dd>${esc(z.dostawa)}${z.adres_dostawy ? '<br>' + esc(z.adres_dostawy) : ''}${z.nr_przesylki ? `<br><small>nr przesyłki ${esc(z.nr_przesylki)}</small>` : ''}</dd></div>` : ''}
           </dl>
           ${z.dostawa && !anulowane && !z.nr_przesylki ? htmlInpost(z, k) : ''}
+          ${z.nr_przesylki && !anulowane ? htmlPrzesylki(z) : ''}
           <dl class="info">
             <div><dt>Wydarzenie</dt><dd>${esc([z.wydarzenie, z.magazyn, z.podmiot].filter(Boolean).join(' · ') || '—')}</dd></div>
             ${z.uwagi ? `<div><dt>Uwagi</dt><dd>${esc(z.uwagi)}</dd></div>` : ''}
@@ -189,6 +190,22 @@ function render(arg) {
 }
 
 /** Dane do nadania paczki w aplikacji InPost Mobile – każde pole osobno do skopiowania. */
+/** Status przesyłki z monitoringu InPost (API v10 sprawdza co 30 minut) i e-maile wysłane klientowi. */
+function htmlPrzesylki(z) {
+  const maile = [['mail_nadana', 'nadana'], ['mail_przypomnienie', 'przypomnienie o odbiorze'], ['mail_odebrana', 'podziękowanie']]
+    .filter(([c]) => z[c]).map(([c, e]) => `${e} (${esc(String(z[c]).slice(5, 16))})`);
+  return `<div class="przesylka-status">
+      <div><span class="etykieta">Przesyłka</span>
+        <b>${esc(z.status_przesylki_opis || (z.status_przesylki ? z.status_przesylki : 'jeszcze nie sprawdzono'))}</b>
+        ${z.status_przesylki_czas ? `<small>${esc(z.status_przesylki_czas)}</small>` : ''}</div>
+      ${maile.length ? `<p class="podpowiedz">E-maile do klienta: ${maile.join(', ')}</p>` : ''}
+      <div class="przyciski">
+        <a class="przycisk drugorzedny maly" href="${esc(linkSledzenia(z.nr_przesylki))}" target="_blank" rel="noopener">Śledź w InPost</a>
+        ${z.przesylka_koniec ? '' : '<button type="button" class="drugorzedny maly" data-akcja="sprawdz-przesylke">Sprawdź status teraz</button>'}
+      </div>
+    </div>`;
+}
+
 function htmlInpost(z, k) {
   const tel = telefonE164(k?.telefon);
   const pola = [
@@ -259,6 +276,20 @@ async function klik(e) {
   const tel = telefonE164(klient(z?.klient_id)?.telefon);
   const akcja = b.dataset.akcja;
   if (akcja === 'sms' || akcja === 'wa') otworz(akcja, tel);
+  if (akcja === 'sprawdz-przesylke') {
+    b.disabled = true;
+    try {
+      const w = await wywolaj('sprawdzPrzesylki', { id: z.id, kto: ustawienia().kto || 'Stoisko' }, 60000);
+      await sync.synchronizuj?.();
+      await wczytaj();
+      toast(w.bledy?.length ? 'InPost: ' + w.bledy.join(' ') : w.zmienione ? 'Zaktualizowano status przesyłki.' : 'Bez zmian w statusie.', w.bledy?.length ? 'blad' : 'ok', 6000);
+      render(biezace);
+    } catch (err) {
+      toast(/Nieznana akcja/.test(err.message) ? 'Monitoring wymaga nowej wersji skryptu w arkuszu (v10).' : 'Nie udało się sprawdzić: ' + err.message, 'blad', 8000);
+      b.disabled = false;
+    }
+    return;
+  }
   if (akcja === 'epp') {
     try {
       const w = await eksportujEpp([z.id]);

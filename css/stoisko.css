@@ -407,3 +407,9 @@ a.chip[aria-pressed="true"] { color: #fff; }
 .magazyn-zam .etykieta-mag { font-size: 13px; color: var(--szary); font-weight: 600; }
 .magazyn-zam .chip { min-height: 32px; padding: 3px 10px; font-size: 13px; }
 .magazyn-zam small { color: var(--szary); font-size: 12px; }
+/* Monitoring przesyłek */
+.przesylka-status { border: 1.5px solid var(--linia); border-radius: 12px; padding: 10px 12px; margin: 8px 0 12px; display: grid; gap: 6px; }
+.przesylka-status b { display: block; font-size: 16px; }
+.przesylka-status small { color: var(--szary); }
+.przesylka-status .przyciski { display: flex; flex-wrap: wrap; gap: 8px; }
+.przesylka-mini { color: var(--rzeka-ciemna); font-weight: 600; }
