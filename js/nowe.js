@@ -8,7 +8,7 @@ import { $, $$, esc, zaokr, kwotaTxt, iloscTxt, liczba, liczbaNaTekst, uuid, dat
 import { dane, wczytaj, szukajProduktow, nastepnyNumer, zapamietajNumer, klientPoTelefonie, telefonE164, klient as klientId,
   produktSymbolu, cenaKlienta, opisCenKlienta, zamowienie, pozycjeZamowienia, ustawienieTekst } from './dane.js';
 import { ustawienia, gotowe } from './api.js';
-import { FORMY, STATUSY, OSOBY_WYSYLKI, SYMBOL_TRANSPORTU, TRANSPORT_DOMYSLNY, czyTransport, symbolMagazynu, MAGAZYNY } from './konfiguracja.js';
+import { FORMY, STATUSY, OSOBY_WYSYLKI, SYMBOL_TRANSPORTU, TRANSPORT_DOMYSLNY, czyTransport, symbolMagazynu, MAGAZYNY, PRZEWOZNICY } from './konfiguracja.js';
 import { rozpoznaj } from './inpost.js';
 import * as sync from './sync.js';
 
@@ -20,7 +20,7 @@ const transportDomyslny = () => {
   return t !== '' && isFinite(liczba(t)) ? liczbaNaTekst(liczba(t)) : liczbaNaTekst(TRANSPORT_DOMYSLNY);
 };
 const pusty = () => ({
-  tryb: 'nowe', edytowane: '', typ: 'miejsce', koszyk: [], klientId: '', telefon: '', nazwa: '', email: '', uwagi: '',
+  tryb: 'nowe', edytowane: '', data: '', typ: 'miejsce', przewoznik: 'InPost', koszyk: [], klientId: '', telefon: '', nazwa: '', email: '', uwagi: '',
   szukaj: '', grupa: '', paczkomat: '', adres: '', nrPrzesylki: '', kodNadania: '', transportTxt: '', realizuje: '', magazyn: '',
   platnosci: [{ k: uuid(), forma: 'Przelew', kwotaTxt: '', zaplacone: false }],
 });
@@ -154,8 +154,28 @@ function opisKlienta() {
 function htmlWysylki() {
   if (s.typ !== 'wysylka') return '';
   const t = kosztTransportu();
+  const pp = s.przewoznik !== 'InPost';
+  const chipyPrzewoznika = `<div class="chipy male przewoznik">${PRZEWOZNICY.map(([w, e]) => `<button type="button" class="chip" data-akcja="przewoznik" data-v="${esc(w)}" aria-pressed="${s.przewoznik === w}">${esc(e)}</button>`).join('')}</div>`;
+  if (pp) {
+    return `<article class="panel wysylka-panel">
+    <header><h2>Wysyłka – ${esc(s.przewoznik)}</h2></header>
+    ${chipyPrzewoznika}
+    <p class="podpowiedz">${s.przewoznik === 'Poczta Polska' ? 'Nadaj przesyłkę w e-nadawcy (Poczta Polska), potem wpisz tutaj adres i numer nadania.' : 'Wpisz adres i numer przesyłki od przewoźnika.'}
+      <button type="button" class="link" data-akcja="wyczysc-wysylke">Wyczyść dane wysyłki i klienta</button></p>
+    <label class="pole"><span class="etykieta">Adres dostawy (z krajem)</span>
+      <textarea data-pole="adres" rows="3" autocomplete="off" placeholder="ulica i numer, kod, miejscowość, kraj">${esc(s.adres)}</textarea></label>
+    <label class="pole"><span class="etykieta">Numer nadania / przesyłki</span>
+      <input data-pole="nrPrzesylki" autocomplete="off" autocapitalize="characters" value="${esc(s.nrPrzesylki)}" placeholder="np. RR123456789PL"></label>
+    <label class="pole"><span class="etykieta">Transport (pozycja na paragonie)</span>
+      <input data-pole="transport" inputmode="decimal" autocomplete="off" value="${esc(s.transportTxt)}" placeholder="${esc(transportDomyslny())}">
+      ${!isFinite(t) ? '<span class="podpowiedz blad">Sprawdź kwotę transportu.</span>' : ''}</label>
+    <span class="etykieta">Kto wysyła</span>
+    <div class="chipy">${OSOBY_WYSYLKI.map(o => `<button type="button" class="chip" data-akcja="realizuje" data-osoba="${esc(o)}" aria-pressed="${s.realizuje === o}">${esc(o)}</button>`).join('')}</div>
+  </article>`;
+  }
   return `<article class="panel wysylka-panel">
     <header><h2>Wysyłka InPost</h2></header>
+    ${chipyPrzewoznika}
     <label class="przycisk szeroki zrzuty${ocrTrwa ? ' trwa' : ''}">
       <input type="file" accept="image/*" multiple data-pole="zrzuty" hidden>
       <span id="ocr-opis">${ocrTrwa ? 'Odczytuję…' : 'Wczytaj 2 zrzuty z InPost: odbiorca + etykieta'}</span>
@@ -228,14 +248,15 @@ export function render(arg) {
   $('#widok').innerHTML = `
   <section class="ekran nowe">
     <header class="naglowek-zam">
-      <div><span class="etykieta">${edycja ? 'Edycja zamówienia' : 'Nowe zamówienie'}</span><h1 class="numer">${esc(edycja ? s.edytowane : nastepnyNumer())}</h1></div>
+      <div><span class="etykieta">${edycja ? 'Edycja zamówienia' : 'Nowe zamówienie'}</span><h1 class="numer">${esc(edycja ? s.edytowane : nastepnyNumer())}</h1>
+        <label class="data-zam"><span>Data</span><input type="date" data-pole="data" value="${esc(s.data || dataLok())}" max="${esc(dataLok())}"></label></div>
       ${edycja ? `<a class="kontekst" href="#zamowienie/${encodeURIComponent(s.edytowane)}">Porzuć zmiany</a>`
         : `<span class="naglowek-akcje"><a class="kontekst" href="#ustawienia" title="Zmień w Ustawieniach">${esc(kontekst || 'Ustaw wydarzenie i magazyn')}</a>
            <button type="button" class="drugorzedny maly" data-akcja="wyczysc-wszystko">Wyczyść zamówienie</button></span>`}
     </header>
     <div class="chipy typ-sprzedazy">
       <button type="button" class="chip" data-akcja="typ" data-typ="miejsce" aria-pressed="${s.typ === 'miejsce'}">Na miejscu</button>
-      <button type="button" class="chip" data-akcja="typ" data-typ="wysylka" aria-pressed="${s.typ === 'wysylka'}">Wysyłka InPost</button>
+      <button type="button" class="chip" data-akcja="typ" data-typ="wysylka" aria-pressed="${s.typ === 'wysylka'}">Wysyłka</button>
     </div>
     <div class="chipy male magazyn-zam" id="magazyn-zam">${htmlMagazynu()}</div>
     <div class="uklad-zam">
@@ -277,6 +298,7 @@ export function render(arg) {
             <textarea data-pole="uwagi" rows="2">${esc(s.uwagi)}</textarea></label>
         </article>
 
+        <div class="blad-zapisu" id="blad-zapisu" role="alert" hidden></div>
         <div class="zatwierdz">
           ${edycja ? `<button type="button" class="glowny" data-akcja="zatwierdz" data-kanal="">Zapisz zmiany</button>
             <button type="button" class="link" data-akcja="zatwierdz" data-kanal="sms">Zapisz i wyślij klientowi nowe podsumowanie SMS</button>`
@@ -425,6 +447,7 @@ function wejscie(e) {
 function zmiana(e) {
   const pole = e.target.dataset.pole;
   if (pole === 'zrzuty') { wczytajZrzuty(e.target.files); return; }
+  if (pole === 'data') { const v = e.target.value || ''; s.data = s.tryb === 'edycja' ? v : (v !== dataLok() ? v : ''); zachowaj(); return; }
   if (pole === 'zaplacone') { wejscie(e); return; }
   if (pole !== 'cena') return;
   const [li, p] = pozycjaZ(e.target);
@@ -460,6 +483,9 @@ async function klik(e) {
     odswiezWysylke();
     odswiezSume();
     odswiezMagazyn();
+  } else if (akcja === 'przewoznik') {
+    s.przewoznik = b.dataset.v;
+    zachowaj(); odswiezWysylke();
   } else if (akcja === 'realizuje') {
     s.realizuje = s.realizuje === b.dataset.osoba ? '' : b.dataset.osoba;
     $$('[data-akcja="realizuje"]').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.osoba === s.realizuje)));
@@ -552,7 +578,9 @@ function zaladujDoEdycji(id) {
     })),
     transPosId: trans?.id || '', transportTxt: trans ? liczbaNaTekst(num(trans.cena)) : (num(z.koszt_dostawy) ? liczbaNaTekst(num(z.koszt_dostawy)) : ''),
     klientId: k ? String(k.id) : '', telefon: k?.telefon || '', nazwa: k?.nazwa || '', email: k?.email || '', uwagi: z.uwagi || '',
-    paczkomat, adres: resztaAdresu.join(', '), nrPrzesylki: z.nr_przesylki || '', kodNadania: z.kod_nadania || '', realizuje: z.realizuje || '', magazyn: z.magazyn ? symbolMagazynu(z.magazyn) : '',
+    przewoznik: z.przewoznik || (/poczta/i.test(z.dostawa || '') ? 'Poczta Polska' : 'InPost'),
+    paczkomat: z.przewoznik && z.przewoznik !== 'InPost' ? '' : paczkomat,
+    adres: z.przewoznik && z.przewoznik !== 'InPost' ? String(z.adres_dostawy || '') : resztaAdresu.join(', '), nrPrzesylki: z.nr_przesylki || '', kodNadania: z.kod_nadania || '', realizuje: z.realizuje || '', magazyn: z.magazyn ? symbolMagazynu(z.magazyn) : '', data: String(z.data || '').slice(0, 10),
     platnosci: platnosci.map((p, i) => ({ k: uuid(), forma: p.forma, kwotaTxt: i === platnosci.length - 1 ? '' : liczbaNaTekst(num(p.kwota)), zaplacone: Boolean(p.zaplacone) })),
   };
   return true;
@@ -569,7 +597,8 @@ function sprawdz(kanal) {
   }
   if (s.typ === 'wysylka') {
     if (!isFinite(kosztTransportu()) || kosztTransportu() < 0) return 'Sprawdź kwotę transportu.';
-    if (!s.paczkomat.trim() && !s.adres.trim()) return 'Wpisz paczkomat albo adres dostawy.';
+    if (s.przewoznik === 'InPost' && !s.paczkomat.trim() && !s.adres.trim()) return 'Wpisz paczkomat albo adres dostawy.';
+    if (s.przewoznik !== 'InPost' && !s.adres.trim()) return 'Wpisz adres dostawy.';
   }
   if (s.telefon && !telefonE164(s.telefon)) return 'Sprawdź numer telefonu klienta.';
   if (kanal && !telefonE164(s.telefon)) return `Wpisz telefon klienta, żeby wysłać ${kanal === 'wa' ? 'WhatsApp' : 'SMS'}.`;
@@ -580,14 +609,22 @@ function sprawdz(kanal) {
   return '';
 }
 
+/** Błąd widoczny przy przyciskach (zostaje, dopóki go nie poprawisz) + komunikat i przejście do pola. */
+function pokazBlad(blad) {
+  const el = $('#blad-zapisu');
+  if (el) { el.textContent = blad; el.hidden = !blad; }
+  if (!blad) return;
+  toast(blad, 'blad', 7000);
+  const pole = /telefon/i.test(blad) ? 'telefon' : /e-mail/i.test(blad) ? 'email' : /paczkomat|adres/i.test(blad) ? 'paczkomat' : '';
+  const p = pole && $(`[data-pole="${pole}"]`);
+  if (p) { p.scrollIntoView({ block: 'center' }); p.focus(); p.classList.add('pole-blad'); setTimeout(() => p.classList.remove('pole-blad'), 4000); }
+}
+
 async function zatwierdz(kanal, przycisk) {
   if (zapisuje) return;
   const blad = sprawdz(kanal);
-  if (blad) {
-    toast(blad, 'blad', 5000);
-    if (/telefon/i.test(blad)) $('[data-pole="telefon"]')?.focus();
-    return;
-  }
+  pokazBlad(blad);
+  if (blad) return;
   zapisuje = true;
   przycisk.disabled = true;
   try {
@@ -656,16 +693,17 @@ async function zatwierdz(kanal, przycisk) {
     paczki.ZAMOWIENIA.push({
       ...(stare || {}),
       id: numer, urzadzenie: stare?.urzadzenie || u.kto, podmiot: stare?.podmiot || u.podmiot, zrodlo: stare?.zrodlo || 'stoisko',
-      data: stare?.data || dataLok(), klient_id: klientIdZ, klient_nowy: stare ? stare.klient_nowy : nowy,
+      data: s.data || stare?.data || dataLok(), klient_id: klientIdZ, klient_nowy: stare ? stare.klient_nowy : nowy,
       wydarzenie: stare?.wydarzenie ?? u.wydarzenie, magazyn: magazynZamowienia(),
       typ: wysylka ? 'wysylka' : 'miejsce',
       forma_platnosci: formy.length > 1 ? 'Mieszana' : (formy[0] || kw[0].forma),
       platnosci: JSON.stringify(kw.map(p => ({ forma: p.forma, kwota: p.kwota, zaplacone: ZAPLACONE_ZAWSZE.has(p.forma) || Boolean(p.zaplacone) }))),
       kw_gotowka: sumaFormy('Gotówka'), kw_blik: sumaFormy('BLIK'), kw_przelew: sumaFormy('Przelew'), kw_karta: sumaFormy('Karta'),
       zaplacono: zapl, suma_brutto: razem, wartosc_produktow: sumaProduktow(),
-      dostawa_id: '', dostawa: wysylka ? (s.paczkomat.trim() ? 'Paczkomat InPost' : 'Kurier InPost') : '',
+      dostawa_id: '', dostawa: wysylka ? (s.przewoznik !== 'InPost' ? s.przewoznik : s.paczkomat.trim() ? 'Paczkomat InPost' : 'Kurier InPost') : '',
+      przewoznik: wysylka ? s.przewoznik : '',
       koszt_dostawy: wysylka ? transport : 0,
-      adres_dostawy: wysylka ? [s.paczkomat.trim(), s.adres.trim()].filter(Boolean).join(', ') : '',
+      adres_dostawy: wysylka ? (s.przewoznik !== 'InPost' ? s.adres.trim() : [s.paczkomat.trim(), s.adres.trim()].filter(Boolean).join(', ')) : '',
       nr_przesylki: wysylka ? s.nrPrzesylki.trim() : '', kod_nadania: wysylka ? s.kodNadania.trim() : '',
       realizuje: wysylka ? s.realizuje : '',
       status: stare?.status === STATUSY.anulowane ? stare.status : (zapl >= razem - 0.005 ? STATUSY.oplacone : STATUSY.czeka),
@@ -679,14 +717,15 @@ async function zatwierdz(kanal, przycisk) {
       s = wczytajSzkic();
     } else {
       const forma = s.platnosci[0]?.forma || 'Przelew';
-      s = { ...pusty(), typ: s.typ, realizuje: s.realizuje, platnosci: [{ k: uuid(), forma, kwotaTxt: '', zaplacone: ZAPLACONE_ZAWSZE.has(forma) }] };
+      s = { ...pusty(), typ: s.typ, przewoznik: s.przewoznik, realizuje: s.realizuje, platnosci: [{ k: uuid(), forma, kwotaTxt: '', zaplacone: ZAPLACONE_ZAWSZE.has(forma) }] };
       zachowaj();
     }
     const ile = paczki.ZAMOWIENIA_POZ.filter(p => p.status !== 'usunięta').length;
     toast(`${edycja ? 'Zapisano zmiany' : 'Zapisano zamówienie'} ${numer} (${ile} ${odmiana(ile, 'pozycja', 'pozycje', 'pozycji')}).`, 'ok');
     location.hash = `#zamowienie/${encodeURIComponent(numer)}${kanal ? '/' + kanal : ''}`;
   } catch (err) {
-    toast('Nie udało się zapisać zamówienia: ' + err.message, 'blad', 7000);
+    console.error(err);
+    pokazBlad('Nie udało się zapisać zamówienia: ' + (err?.message || err) + ' – spróbuj jeszcze raz; jeśli się powtarza, wyślij zrzut tego komunikatu.');
   } finally {
     zapisuje = false;
     przycisk.disabled = false;

@@ -6,7 +6,8 @@ const DOMENY = 'gmail|wp|o2|onet|interia|op|yahoo|hotmail|outlook|icloud|live|tl
 
 /** Poprawki typowych pomyłek rozpoznawania. */
 function poprawEmail(t) {
-  const s = String(t || '').replace(/\s+/g, '');
+  // wielkie „I” w adresie e-mail to prawie zawsze odczytane „l” (adresy pisze się małymi literami)
+  const s = String(t || '').replace(/\s+/g, '').replace(/I/g, 'l');
   if (/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(s)) return s.toLowerCase();
   // „@” bywa odczytane jako „Q”, „Qa”, „©”, „G” – szukamy znanej domeny i wstawiamy „@” przed nią
   const m = new RegExp(`^(.+?)(?:Qa|@a|Q|©|@|G|\\(a\\)|a)?((?:${DOMENY})\\.[a-z.]{2,})$`, 'i').exec(s);
@@ -31,7 +32,9 @@ const tylkoCyfry = t => String(t || '').replace(/\D/g, '');
 export function rozbierzTekst(tekst) {
   const linie = String(tekst || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const po = etykieta => {
-    const i = linie.findIndex(l => etykieta.test(l));
+    // najpierw linia, która jest samą etykietą (np. „Adres e-mail*”), potem dowolna zawierająca etykietę
+    let i = linie.findIndex(l => etykieta.test(l) && l.replace(etykieta, '').replace(/[*:\s]/g, '') === '');
+    if (i < 0) i = linie.findIndex(l => etykieta.test(l));
     return i >= 0 ? linie[i + 1] || '' : '';
   };
   const w = { imie: '', nazwisko: '', nazwa: '', telefon: '', email: '', paczkomat: '', adres: '', nrPrzesylki: '', kodNadania: '' };
@@ -51,6 +54,7 @@ export function rozbierzTekst(tekst) {
   }
   const em = linie.find(l => /[@Q©]\s*a?\s*(?:[a-z]+\.)?[a-z]+\.[a-z]{2,}/i.test(l) && !/http/i.test(l)) || po(/adres e-?mail/i);
   if (em) w.email = poprawEmail(em.split(/\s+/).find(x => /\.[a-z]{2,}$/i.test(x)) || em);
+  if (!/@/.test(w.email)) w.email = '';               // nie udało się odczytać adresu – lepiej puste niż błędne
 
   // paczkomat: linia z kodem (np. WAW01M, WAWR01BAPP) i „Zmień”, potem ulica i kod pocztowy
   const iP = linie.findIndex(l => /^[A-Z0-9O]{5,12}\b/.test(l) && /zmie[nń]|>|→/i.test(l));

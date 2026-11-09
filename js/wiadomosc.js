@@ -2,11 +2,11 @@
 // Wiadomość wysyła sprzedawca z telefonu – SMS działa także bez internetu (przez sieć komórkową).
 
 import { ustawienia } from './api.js';
-import { PLATNE_POZNIEJ, czyTransport } from './konfiguracja.js';
+import { PLATNE_POZNIEJ, czyTransport, linkSledzeniaPrzewoznika } from './konfiguracja.js';
 import { kwotaTxt, iloscTxt, num } from './util.js';
 import { telefonE164, klient } from './dane.js';
 
-export const linkSledzenia = nr => `https://inpost.pl/sledzenie-przesylek?number=${encodeURIComponent(String(nr).replace(/\D/g, ''))}`;
+export const linkSledzenia = (nr, przewoznik = 'InPost') => linkSledzeniaPrzewoznika(przewoznik, nr);
 
 const MAKS_POZYCJI = 8;
 const produkty = pozycje => pozycje.filter(p => !czyTransport(p.symbol));
@@ -35,8 +35,11 @@ export function trescWiadomosci(zam, pozycje) {
     linie.push(`Dostawa – ${zam.dostawa}: ${koszt ? kwotaTxt(koszt) : 'gratis'}`);
     if (zam.adres_dostawy) linie.push(`${/paczkomat/i.test(zam.dostawa) ? 'Paczkomat' : 'Adres'}: ${String(zam.adres_dostawy).replace(/\s*\n\s*/g, ', ')}`);
     if (zam.nr_przesylki) {
-      linie.push(`Nr przesyłki InPost: ${zam.nr_przesylki}`, `Śledzenie: ${linkSledzenia(zam.nr_przesylki)}`);
-      if (/@/.test(klient(zam.klient_id)?.email || '')) linie.push('Gdy paczka zostanie nadana w paczkomacie, wyślemy Ci e-mail.');
+      const przew = zam.przewoznik || 'InPost';
+      const link = linkSledzenia(zam.nr_przesylki, przew);
+      linie.push(`Nr przesyłki${przew === 'Inny' ? '' : ' ' + przew}: ${zam.nr_przesylki}`);
+      if (link) linie.push(`Śledzenie: ${link}`);
+      if (przew === 'InPost' && /@/.test(klient(zam.klient_id)?.email || '')) linie.push('Gdy paczka zostanie nadana w paczkomacie, wyślemy Ci e-mail.');
     }
   }
   linie.push(`Razem: ${kwotaTxt(num(zam.suma_brutto))}`, '');
@@ -49,7 +52,8 @@ export function trescWiadomosci(zam, pozycje) {
     linie.push(`Do zapłaty: ${kwotaTxt(Math.round(doZaplaty * 100) / 100)}`);
     if (platnosc.konto) linie.push(`• przelew: ${platnosc.odbiorca}, nr konta ${platnosc.konto}`);
     if (platnosc.blik) linie.push(`• BLIK na telefon: ${platnosc.blik}`);
-    linie.push(`Tytuł: ${zam.id}`);
+    // numer w osobnej linii – klient kopiuje go jednym przytrzymaniem
+    linie.push('Prosimy wpisać w tytule przelewu numer zamówienia:', zam.id);
   }
   linie.push('', 'Dziękujemy! oneriver.pl');
   return linie.join('\n');
@@ -74,17 +78,9 @@ export function linkWhatsApp(telefon, tresc) {
 
 /** Wiadomość dla osoby wysyłającej (grupa ZAMÓWIENIA na Messengerze albo WhatsApp). */
 export function trescDlaWysylki(zam, pozycje, klient) {
-  const d = String(zam.data || '').slice(0, 10);
-  const data = d ? new Date(d + 'T12:00:00').toLocaleDateString('pl-PL', { day: 'numeric', month: 'numeric', year: 'numeric' }) : '';
-  const linie = [`Zamówienie ${zam.id} – do wysyłki`, `Klient: ${klient?.nazwa || '—'}${klient?.telefon ? ', tel. ' + klient.telefon : ''}`, `Data: ${data}`, '', 'Produkty:'];
-  produkty(pozycje).forEach(p => linie.push(`• ${p.nazwa} × ${iloscTxt(num(p.ilosc))} – ${kwotaTxt(num(p.wartosc))}`));
-  if (zam.dostawa) linie.push(`Dostawa: ${zam.dostawa}${zam.adres_dostawy ? ' (' + String(zam.adres_dostawy).replace(/\s*\n\s*/g, ', ') + ')' : ''} – ${kwotaTxt(num(zam.koszt_dostawy))}`);
-  linie.push(`Razem z wysyłką: ${kwotaTxt(num(zam.suma_brutto))}`);
-  const pl = platnosciZamowienia(zam);
-  const doZaplaty = pl.filter(p => !p.zaplacone).reduce((a, p) => a + p.kwota, 0);
-  linie.push(doZaplaty > 0.005 ? `Płatność: czeka ${kwotaTxt(Math.round(doZaplaty * 100) / 100)}` : 'Płatność: zapłacone');
-  if (zam.kod_nadania) linie.push(`Kod nadania InPost: ${zam.kod_nadania}`);
-  if (zam.nr_przesylki) linie.push(`Nr przesyłki: ${zam.nr_przesylki}`);
+  const linie = [`Zamówienie ${zam.id} – do wysyłki`, `Klient: ${klient?.nazwa || '—'}`, 'Produkty:'];
+  produkty(pozycje).forEach(p => linie.push(`• ${p.nazwa}${num(p.ilosc) === 1 ? '' : ' × ' + iloscTxt(num(p.ilosc))}`));
+  if (zam.kod_nadania) linie.push(`Kod nadania: ${zam.kod_nadania}`);
   if (zam.realizuje) linie.push(`Wysyła: ${zam.realizuje}`);
   if (zam.uwagi) linie.push(`Uwagi: ${zam.uwagi}`);
   return linie.join('\n');

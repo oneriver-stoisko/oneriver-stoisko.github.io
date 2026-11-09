@@ -413,3 +413,7 @@ a.chip[aria-pressed="true"] { color: #fff; }
 .przesylka-status small { color: var(--szary); }
 .przesylka-status .przyciski { display: flex; flex-wrap: wrap; gap: 8px; }
 .przesylka-mini { color: var(--rzeka-ciemna); font-weight: 600; }
+.blad-zapisu { background: #FDE7E5; color: #8C1D18; border: 1.5px solid #E5A29D; border-radius: 12px; padding: 10px 14px; margin: 0 0 10px; font-weight: 600; }
+.pole-blad { outline: 3px solid var(--czerwien); outline-offset: 2px; }
+.data-zam { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--szary); margin-top: 2px; }
+.data-zam input { font: inherit; font-size: 14px; padding: 4px 8px; border: 1.5px solid var(--linia); border-radius: 8px; background: var(--papier); color: var(--atrament); min-height: 32px; }

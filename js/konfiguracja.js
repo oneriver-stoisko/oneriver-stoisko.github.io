@@ -1,7 +1,7 @@
 // Stałe aplikacji stoiska. Dane do płatności są domyślne dla wszystkich urządzeń;
 // na danym urządzeniu można je zmienić w Ustawieniach.
 
-export const WERSJA = '0.7.0';
+export const WERSJA = '0.7.1';
 
 // Stoisko ma własny adres (osobna „strona” dla telefonu – inaczej Chrome na Androidzie myli je z Finansami).
 export const ADRES_STOISKA = 'https://oneriver-stoisko.github.io/';
@@ -54,6 +54,16 @@ export const symbolMagazynu = m => {
 
 // Kto realizuje wysyłkę zamówień (wybór przy zamówieniu; trafia do kolumny ZAMOWIENIA.realizuje).
 export const OSOBY_WYSYLKI = ['Olek', 'Grażynka'];
+
+// Przewoźnicy przy wysyłce: [wartość w ZAMOWIENIA.przewoznik, etykieta]. Monitoring statusów działa dla InPost.
+export const PRZEWOZNICY = [['InPost', 'InPost'], ['Poczta Polska', 'Poczta Polska'], ['Inny', 'Inny przewoźnik']];
+export const linkSledzeniaPrzewoznika = (przewoznik, nr) => {
+  const n = encodeURIComponent(String(nr || '').replace(/\s+/g, ''));
+  if (!n) return '';
+  if (przewoznik === 'Poczta Polska') return `https://emonitoring.poczta-polska.pl/?numer=${n}`;
+  if (przewoznik && przewoznik !== 'InPost') return '';
+  return `https://inpost.pl/sledzenie-przesylek?number=${n.replace(/\D/g, '')}`;
+};
 
 export const ETYKIETY_STATUSOW = { nowe: 'do potwierdzenia' };
 

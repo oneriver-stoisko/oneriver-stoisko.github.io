@@ -157,7 +157,7 @@ function render(arg) {
             <div><dt>Płatność</dt><dd>${platnosciZamowienia(z).map(p => `${esc(p.forma)} ${esc(kwotaTxt(p.kwota))} – ${p.zaplacone ? 'zapłacone' : '<b>czeka</b>'}`).join('<br>')}</dd></div>
             ${z.dostawa ? `<div><dt>Dostawa</dt><dd>${esc(z.dostawa)}${z.adres_dostawy ? '<br>' + esc(z.adres_dostawy) : ''}${z.nr_przesylki ? `<br><small>nr przesyłki ${esc(z.nr_przesylki)}</small>` : ''}</dd></div>` : ''}
           </dl>
-          ${z.dostawa && !anulowane && !z.nr_przesylki ? htmlInpost(z, k) : ''}
+          ${z.dostawa && !anulowane && !z.nr_przesylki && (!z.przewoznik || z.przewoznik === 'InPost') ? htmlInpost(z, k) : ''}
           ${z.nr_przesylki && !anulowane ? htmlPrzesylki(z) : ''}
           <dl class="info">
             <div><dt>Wydarzenie</dt><dd>${esc([z.wydarzenie, z.magazyn, z.podmiot].filter(Boolean).join(' · ') || '—')}</dd></div>
@@ -196,12 +196,12 @@ function htmlPrzesylki(z) {
     .filter(([c]) => z[c]).map(([c, e]) => `${e} (${esc(String(z[c]).slice(5, 16))})`);
   return `<div class="przesylka-status">
       <div><span class="etykieta">Przesyłka</span>
-        <b>${esc(z.status_przesylki_opis || (z.status_przesylki ? z.status_przesylki : 'jeszcze nie sprawdzono'))}</b>
+        <b>${esc(z.status_przesylki_opis || (z.status_przesylki ? z.status_przesylki : (z.przewoznik && z.przewoznik !== 'InPost' ? z.przewoznik + ' – status sprawdzisz w linku' : 'jeszcze nie sprawdzono')))}</b>
         ${z.status_przesylki_czas ? `<small>${esc(z.status_przesylki_czas)}</small>` : ''}</div>
       ${maile.length ? `<p class="podpowiedz">E-maile do klienta: ${maile.join(', ')}</p>` : ''}
       <div class="przyciski">
-        <a class="przycisk drugorzedny maly" href="${esc(linkSledzenia(z.nr_przesylki))}" target="_blank" rel="noopener">Śledź w InPost</a>
-        ${z.przesylka_koniec ? '' : '<button type="button" class="drugorzedny maly" data-akcja="sprawdz-przesylke">Sprawdź status teraz</button>'}
+        <a class="przycisk drugorzedny maly" href="${esc(linkSledzenia(z.nr_przesylki, z.przewoznik || 'InPost'))}" target="_blank" rel="noopener">Śledź przesyłkę</a>
+        ${z.przesylka_koniec || (z.przewoznik && z.przewoznik !== 'InPost') ? '' : '<button type="button" class="drugorzedny maly" data-akcja="sprawdz-przesylke">Sprawdź status teraz</button>'}
       </div>
     </div>`;
 }
