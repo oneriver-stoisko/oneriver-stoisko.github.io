@@ -298,7 +298,8 @@ export function render(arg) {
     <header class="naglowek-zam">
       <div><span class="etykieta">${edycja ? 'Edycja zamówienia' : 'Nowe zamówienie'}</span><h1 class="numer">${esc(edycja ? s.edytowane : nastepnyNumer())}</h1>
         <label class="data-zam"><span>Data</span><input type="date" data-pole="data" value="${esc(s.data || dataLok())}" max="${esc(dataLok())}"></label></div>
-      ${edycja ? `<a class="kontekst" href="#zamowienie/${encodeURIComponent(s.edytowane)}">Porzuć zmiany</a>`
+      ${edycja ? `<span class="naglowek-akcje"><button type="button" class="zapisz-gora" data-akcja="zatwierdz" data-kanal="">Zapisz zmiany</button>
+           <a class="kontekst" href="#zamowienie/${encodeURIComponent(s.edytowane)}">Porzuć zmiany</a></span>`
         : `<span class="naglowek-akcje"><a class="kontekst" href="#ustawienia" title="Zmień w Ustawieniach">${esc(kontekst || 'Ustaw wydarzenie i magazyn')}</a>
            <button type="button" class="drugorzedny maly" data-akcja="wyczysc-wszystko">Wyczyść zamówienie</button></span>`}
     </header>
@@ -508,7 +509,17 @@ function wejscie(e) {
 function zmiana(e) {
   const pole = e.target.dataset.pole;
   if (pole === 'zrzuty') { wczytajZrzuty(e.target.files); return; }
-  if (pole === 'data') { const v = e.target.value || ''; s.data = s.tryb === 'edycja' ? v : (v !== dataLok() ? v : ''); zachowaj(); return; }
+  if (pole === 'data') {
+    const v = e.target.value || '';
+    s.data = s.tryb === 'edycja' ? v : (v !== dataLok() ? v : '');
+    zachowaj();
+    if (s.tryb === 'edycja') {
+      const b = $('.zapisz-gora');
+      if (b) { b.classList.add('zmieniono'); b.focus({ preventScroll: true }); }
+      toast('Zmieniono datę – dotknij „Zapisz zmiany” u góry.', 'ok', 4000);
+    }
+    return;
+  }
   if (pole === 'zaplacone') { wejscie(e); return; }
   if (pole !== 'cena') return;
   const [li, p] = pozycjaZ(e.target);
