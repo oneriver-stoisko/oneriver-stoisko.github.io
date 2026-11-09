@@ -13,6 +13,9 @@ import { ekran as ekranSklepu } from './sklep.js';
 import { ekran as ekranPoziomow } from './poziomy.js';
 import { ekran as ekranProsty } from './prosty.js';
 import { ekran as ekranWysylek, ileDoWyslania } from './wysylki.js';
+import { ekran as ekranInstrukcji } from './instrukcje.js';
+import { ekran as ekranPotrzeb, ileNowychZapotrzebowan } from './potrzebuje.js';
+import { ustawZnaczek, odswiezCichutko } from './powiadomienia.js';
 import { ileDoPotwierdzenia } from './lista.js';
 import { ADRES_STOISKA } from './konfiguracja.js';
 
@@ -28,8 +31,10 @@ const TRASY = {
   ustawienia: [ekranUstawien, 'ustawienia', 'Ustawienia'],
   prosty: [ekranProsty, 'prosty', 'Sprzedaż'],
   wysylki: [ekranWysylek, 'wysylki', 'Do wysłania'],
+  potrzebuje: [ekranPotrzeb, 'potrzebuje', 'Potrzebuję'],
+  instrukcje: [ekranInstrukcji, 'instrukcje', 'Instrukcje'],
 };
-const TRASY_PROSTE = ['prosty', 'wysylki', 'ustawienia'];
+const TRASY_PROSTE = ['prosty', 'wysylki', 'potrzebuje', 'instrukcje', 'ustawienia'];
 
 let aktywny = null;
 window.addEventListener('or-zmiana-roli', () => { location.hash = trybProsty() ? '#prosty' : '#nowe'; render(); });
@@ -61,6 +66,11 @@ function render() {
   const licznik = $('.nawigacja [data-widok="lista"] .licznik');
   licznik.textContent = n || '';
   licznik.hidden = !n;
+  const nz = ileNowychZapotrzebowan();
+  const lz = $('.nawigacja [data-widok="sklep"] .licznik');
+  if (lz) { lz.textContent = nz || ''; lz.hidden = !nz; }
+  // znaczek na ikonie aplikacji (Windows, macOS, iPhone; na Androidzie kropkę daje powiadomienie)
+  ustawZnaczek(trybProsty() ? nw : n + nz);
   ekran.render(arg);
   document.title = `${tytul} · One River Stoisko`;
 }
@@ -103,12 +113,23 @@ function pokazPrzeprowadzke() {
   document.body.prepend(d);
 }
 
+function sledzWysokoscGory() {
+  const g = $('.gora');
+  if (!g) return;
+  const ustaw = () => document.documentElement.style.setProperty('--wys-gory', g.offsetHeight + 'px');
+  ustaw();
+  if ('ResizeObserver' in window) new ResizeObserver(ustaw).observe(g);
+  else window.addEventListener('resize', ustaw);
+}
+
 async function start() {
   pokazPrzeprowadzke();
+  sledzWysokoscGory();
   await wczytaj();
   render();
   sync.obserwuj(pokazStan);
   await sync.start();
+  odswiezCichutko();
 
   window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
   const widok = $('#widok');

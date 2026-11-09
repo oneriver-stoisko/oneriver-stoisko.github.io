@@ -700,14 +700,16 @@ async function zapiszStan() {
 }
 
 /**
- * Zapis z prostego ekranu (tryb Grażynki): sprzedaż na miejscu, jedna forma płatności.
+ * Zapis z prostego ekranu (tryb Grażynki): sprzedaż na miejscu.
  * koszyk – pozycje w formacie ekranu „Nowe” ({ symbol, nazwa, grupa, jm, cena_cennik, iloscTxt, cenaTxt }).
+ * platnosci – [{ forma, kwotaTxt, zaplacone }]; ostatnia bez kwoty = reszta (podzielona płatność).
  */
-export async function zapiszProste({ koszyk, forma, zaplacone, telefon, nazwa, magazyn }) {
+export async function zapiszProste({ koszyk, forma, zaplacone, platnosci, telefon, nazwa, magazyn }) {
   const poprzedni = s;
   s = { ...pusty(), typ: 'miejsce', magazyn: magazyn || '', telefon: telefon || '', nazwa: nazwa || '',
     koszyk: koszyk.map(p => ({ k: uuid(), posId: '', ...p })),
-    platnosci: [{ k: uuid(), forma, kwotaTxt: '', zaplacone: Boolean(zaplacone) }] };
+    platnosci: (platnosci && platnosci.length ? platnosci : [{ forma, kwotaTxt: '', zaplacone }])
+      .map((x, i, l) => ({ k: uuid(), forma: x.forma, kwotaTxt: i === l.length - 1 ? '' : String(x.kwotaTxt || ''), zaplacone: Boolean(x.zaplacone) })) };
   try {
     const blad = sprawdz('');
     if (blad) throw new Error(blad);

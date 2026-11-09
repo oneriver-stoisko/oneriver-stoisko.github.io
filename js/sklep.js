@@ -52,6 +52,13 @@ function render() {
     <h1>Sklep</h1>
     ${api && api < 7 ? `<p class="pasek-info blad">Skrypt arkusza ma wersję ${api}. Formularz dla klientów, wysyłki i ceny specjalne działają od wersji 7 – wklej nowy Kod.gs.</p>` : ''}
 
+    <article class="panel${dane.zapotrzebowania.some(z => (z.status || 'nowe') === 'nowe') ? ' wyroznij' : ''}">
+      <h2>Grażynka</h2>
+      ${(() => { const n = dane.zapotrzebowania.filter(z => (z.status || 'nowe') === 'nowe').length;
+        return `<p>${n ? `<b>${n} ${n === 1 ? 'nowe zapotrzebowanie' : 'nowe zapotrzebowania'}</b> do obejrzenia.` : 'Brak nowych zapotrzebowań.'} Instrukcji: ${dane.instrukcje.length}.</p>`; })()}
+      <div class="przyciski"><a class="przycisk" href="#potrzebuje">Zapotrzebowanie</a><a class="przycisk drugorzedny" href="#instrukcje">Instrukcje dla Grażynki</a></div>
+    </article>
+
     <article class="panel">
       <h2>Poziomy cen</h2>
       <p>Tabele cen detalicznych i hurtowych dla Rapé (rodzaj × gramatura) i Zielarni. Klientowi przypisujesz poziom w jego karcie.</p>

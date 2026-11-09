@@ -6,6 +6,7 @@ import { dane, zamowienie, pozycjeZamowienia, klient } from './dane.js';
 import { wywolaj, nazwaUzytkownika, trybProsty } from './api.js';
 import { STATUSY, czyTransport, linkSledzeniaPrzewoznika } from './konfiguracja.js';
 import * as sync from './sync.js';
+import { wypelnijPanele, klikPanelu } from './powiadomienia.js';
 
 const osoba = () => nazwaUzytkownika() || 'Grażynka';
 const czyMoje = z => (trybProsty() ? z.realizuje === osoba() : true);
@@ -44,9 +45,11 @@ function render() {
   const zrob = wyslane();
   $('#widok').innerHTML = `<section class="ekran prosty-ekran wysylki-ekran">
     <h1 class="pr-tytul">Do wysłania${lista.length ? ` (${lista.length})` : ''}</h1>
+    ${trybProsty() ? '<div class="wy-push" data-push="baner" hidden></div>' : ''}
     ${lista.length ? `<ul class="wy-lista">${lista.map(karta).join('')}</ul>` : '<p class="pr-info">Nie ma nic do wysłania. 🎉</p>'}
     ${zrob.length ? `<h2 class="wy-pod">Ostatnio wysłane</h2><ul class="wy-lista wy-zrobione">${zrob.map(karta).join('')}</ul>` : ''}
   </section>`;
+  if (trybProsty()) wypelnijPanele(true);
 }
 
 /** Zmniejsza zdjęcie (dłuższy bok 1600 px, JPEG) – szybciej się wysyła przez telefon. */
@@ -96,6 +99,7 @@ async function oznaczWyslane(z) {
 async function klik(e) {
   const b = e.target.closest('[data-akcja]');
   if (!b) return;
+  if (await klikPanelu(b, toast, true)) return;
   const z = zamowienie(b.closest('[data-id]')?.dataset.id);
   if (!z) return;
   if (b.dataset.akcja === 'wyslane') await oznaczWyslane(z);

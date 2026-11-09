@@ -18,6 +18,7 @@ export const KLUCZE = {
   POZIOMY_CENOWE: r => String(r.id),
   CENY_POZIOMOW: r => String(r.id),
   USTAWIENIA: r => String(r.id),
+  ZAPOTRZEBOWANIA: r => String(r.id),
 };
 let kartyPobierane = Object.keys(KLUCZE);
 

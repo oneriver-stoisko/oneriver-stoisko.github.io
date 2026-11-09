@@ -11,15 +11,17 @@ export const dane = {
   zamowienia: [], pozycje: [], klienci: [], cennik: [], produkty: [], grupy: [], magazyny: [],
   wysylki: [], grupyCenowe: [], cenySpecjalne: [], zKatalogu: false,
   poziomy: [], cenyPoziomow: new Map(), ustawienia: new Map(), stanyZDnia: '',
+  instrukcje: [], zapotrzebowania: [],
 };
 
+export const PREFIKS_INSTRUKCJI = 'instr:';
 const numerZam = id => Number(String(id).split('-').pop()) || 0;
 const prawda = v => v === true || /^(true|tak|1)$/i.test(String(v));
 export const aktywny = w => w.aktywna === '' || w.aktywna === undefined || prawda(w.aktywna);
 let podpis = '';
 
 const KARTY = ['ZAMOWIENIA', 'ZAMOWIENIA_POZ', 'KLIENCI', 'SPRZEDAZ_SGT', 'SPRZEDAZ_SGT_POZ', 'KATALOG', 'WYSYLKI', 'GRUPY_CENOWE', 'CENY_SPECJALNE',
-  'POZIOMY_CENOWE', 'CENY_POZIOMOW', 'USTAWIENIA'];
+  'POZIOMY_CENOWE', 'CENY_POZIOMOW', 'USTAWIENIA', 'ZAPOTRZEBOWANIA'];
 
 /** Wczytuje dane z pamięci urządzenia. Zwraca true, gdy coś się zmieniło od poprzedniego wczytania. */
 export async function wczytaj() {
@@ -28,10 +30,14 @@ export async function wczytaj() {
     + ':' + l.map(w => w.status || '').join('')).join('|');
   const zmiana = nowy !== podpis;
   podpis = nowy;
-  const [z, p, k, dok, poz, kat, wys, gr, cs, pc, cp, us] = karty;
+  const [z, p, k, dok, poz, kat, wys, gr, cs, pc, cp, us, zp] = karty;
   dane.poziomy = pc.sort((a, b) => num(a.kolejnosc) - num(b.kolejnosc) || String(a.nazwa).localeCompare(String(b.nazwa), 'pl'));
   dane.cenyPoziomow = new Map(cp.filter(c => c.cena !== '' && c.cena != null).map(c => [`${c.poziom_id}|${c.symbol}`, num(c.cena)]));
   dane.ustawienia = new Map(us.map(u => [String(u.id), String(u.tresc ?? '')]));
+  // Instrukcje dla Grażynki: wiersze USTAWIENIA z id „instr:…” (opis = tytuł, tresc = treść; usunięte – pusty opis i treść)
+  dane.instrukcje = us.filter(u => String(u.id).startsWith(PREFIKS_INSTRUKCJI) && (String(u.opis || '').trim() || String(u.tresc || '').trim()))
+    .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  dane.zapotrzebowania = zp.sort((a, b) => String(b.utworzono || b.data || '').localeCompare(String(a.utworzono || a.data || '')));
   dane.zamowienia = z.sort((a, b) => String(b.data).localeCompare(String(a.data)) || String(b.utworzono || '').localeCompare(String(a.utworzono || '')) || numerZam(b.id) - numerZam(a.id));
   dane.pozycje = p;
   dane.klienci = k.sort((a, b) => String(a.nazwa || '').localeCompare(String(b.nazwa || ''), 'pl'));
@@ -107,13 +113,14 @@ function zbudujCennik(katalog, dokumenty, pozycje) {
       rodzaj: String(w.rodzaj || ''), grupa: String(w.grupa || ''),
       ukryty: prawda(w.ukryty), sprzedano: sprzedaz.get(String(w.id))?.sprzedano || 0,
       stan: w.stan === '' || w.stan == null ? null : num(w.stan),
+      stanGr: w.stan_gr === '' || w.stan_gr == null ? null : num(w.stan_gr),
     }));
     dane.stanyZDnia = String(aktywne.find(w => w.stan_z_dnia)?.stan_z_dnia || '');
   } else {
     dane.cennik = [...sprzedaz.entries()].map(([symbol, e]) => {
       const r = rozbierzNazwe(e.nazwa);
       return { symbol, nazwa: e.nazwa, produkt: r.produkt, wariant: r.wariant, kategoria: e.grupa || 'Inne', jm: e.jm,
-        cena: cenaZeSprzedazy(e), zdjecie: '', ukryty: false, sprzedano: e.sprzedano, stan: null };
+        cena: cenaZeSprzedazy(e), zdjecie: '', ukryty: false, sprzedano: e.sprzedano, stan: null, stanGr: null };
     }).filter(p => p.cena > 0);
   }
 

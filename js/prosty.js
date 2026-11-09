@@ -1,20 +1,23 @@
 // Prosty ekran sprzedaży (tryb Grażynki): sprzedaż na miejscu krok po kroku – produkty ze zdjęciami,
-// sprawdzenie koszyka, płatność (gotówka albo BLIK), klient i SMS. Duże przyciski, jasne komunikaty.
+// sprawdzenie koszyka, płatność (gotówka, BLIK albo podzielona: część gotówką, reszta BLIK-iem), klient i SMS.
+// Duże przyciski, jasne komunikaty. Przy gramaturach widać stan magazynu GR (u Grażynki).
 
-import { $, esc, kwotaTxt, liczba, liczbaNaTekst, uuid, toast, okno, normalizuj } from './util.js';
+import { $, esc, kwotaTxt, liczba, liczbaNaTekst, uuid, toast, okno, normalizuj, bezSkoku } from './util.js';
 import { dane, zamowienie, pozycjeZamowienia, telefonE164 } from './dane.js';
 import { ustawienia } from './api.js';
 import { trescWiadomosci, linkSms, otworzLink } from './wiadomosc.js';
 import { zapiszProste } from './nowe.js';
 
 // Kategorie widoczne w trybie prostym (w Subiekcie: RAPE, akcesoria, PŁYNY I ZIELARNIA)
-const KATEGORIE = [['Rapé', 'Rapé'], ['Akcesoria do rapé', 'Akcesoria'], ['Zielarnia i olejki', 'Płyny i zielarnia']];
-const FORMY = [['Gotówka', 'Gotówka'], ['BLIK', 'BLIK na telefon']];
+export const KATEGORIE = [['Rapé', 'Rapé'], ['Akcesoria do rapé', 'Akcesoria'], ['Zielarnia i olejki', 'Płyny i zielarnia']];
+const FORMY = [['Gotówka', '💵 Gotówka'], ['BLIK', '📱 BLIK na telefon'], ['Podzielona', '💵+📱 Część gotówką, reszta BLIK']];
+/** Stan u Grażynki (magazyn GR); gdy katalog nie ma jeszcze stanów per magazyn – null. */
+export const stanU = w => (w.stanGr === undefined ? null : w.stanGr);
 const KROKI = ['produkty', 'koszyk', 'platnosc', 'klient'];
 const TYTULY = { produkty: 'Wybierz produkty', koszyk: 'Sprawdź ilości i ceny', platnosc: 'Jak klient płaci?', klient: 'Telefon klienta' };
 
 const KLUCZ = 'or-stoisko-prosty-szkic';
-const nowy = () => ({ krok: 'produkty', kategoria: KATEGORIE[0][0], szukaj: '', koszyk: [], forma: '', zaplacone: false, telefon: '', nazwa: '', otwarty: '', numer: '', blad: '' });
+const nowy = () => ({ krok: 'produkty', kategoria: KATEGORIE[0][0], szukaj: '', koszyk: [], forma: '', gotowkaTxt: '', zaplacone: false, telefon: '', nazwa: '', otwarty: '', numer: '', blad: '' });
 let p = (() => { try { return { ...nowy(), ...JSON.parse(localStorage.getItem(KLUCZ) || '{}'), blad: '' }; } catch { return nowy(); } })();
 const zachowaj = () => { try { localStorage.setItem(KLUCZ, JSON.stringify({ ...p, blad: '' })); } catch { /* bez znaczenia */ } };
 
@@ -22,6 +25,8 @@ const cenaPoz = x => { const c = liczba(x.cenaTxt); return isFinite(c) ? c : Num
 const iloscPoz = x => { const n = liczba(x.iloscTxt); return isFinite(n) && n > 0 ? n : 0; };
 const razem = () => Math.round(p.koszyk.reduce((s, x) => s + cenaPoz(x) * iloscPoz(x), 0) * 100) / 100;
 const ileSztuk = () => p.koszyk.reduce((s, x) => s + iloscPoz(x), 0);
+const gotowka = () => { const g = liczba(p.gotowkaTxt); return isFinite(g) ? Math.round(g * 100) / 100 : NaN; };
+const resztaBlik = () => Math.round((razem() - (gotowka() || 0)) * 100) / 100;
 
 function produktyKategorii() {
   const slowa = normalizuj(p.szukaj).split(/\s+/).filter(Boolean);
@@ -40,11 +45,35 @@ function htmlKrokow() {
     <h1 class="pr-tytul">Krok ${i + 1} z ${KROKI.length}: ${esc(TYTULY[p.krok])}</h1>`;
 }
 
+/** Gramatura / rozmiar: dotknięcie dodaje 1 szt.; gdy jest w koszyku – obok „−”, żeby odjąć albo odznaczyć. */
+function htmlWariantu(w) {
+  const x = wKoszyku(w.symbol);
+  const ile = x ? iloscPoz(x) : 0;
+  const st = stanU(w);
+  const brak = st !== null ? st <= 0 : (w.stan !== null && w.stan <= 0);
+  return `<div class="pr-wariant${ile ? ' wybrany' : ''}"${brak ? ' data-brak="1"' : ''}>
+    <button type="button" class="pr-w-dodaj" data-akcja="dodaj" data-v="${esc(w.symbol)}">
+      <b>${esc(w.wariant || 'Dodaj')}</b><span>${esc(kwotaTxt(w.cena))}</span>
+      <small class="pr-w-stan">${st !== null ? (st > 0 ? `masz: ${esc(liczbaNaTekst(st))} szt.` : 'u Ciebie: brak') : (brak ? 'brak na stanie' : '')}</small>
+    </button>
+    ${ile ? `<div class="pr-w-ile">
+      <button type="button" class="pr-w-minus" data-akcja="odejmij" data-v="${esc(w.symbol)}" aria-label="Odejmij jedną sztukę">${ile === 1 ? '✕' : '−'}</button>
+      <span>w koszyku: <b>${esc(liczbaNaTekst(ile))}</b></span>
+    </div>` : ''}
+  </div>`;
+}
+
+export function htmlFiltrow(stan) {
+  return `<div class="pr-przyklejone">
+    <div class="pr-kategorie">${KATEGORIE.map(([k, e]) => `<button type="button" class="pr-kat" data-akcja="kategoria" data-v="${esc(k)}" aria-pressed="${!stan.szukaj && stan.kategoria === k}">${esc(e)}</button>`).join('')}</div>
+    <label class="pr-szukaj"><span class="sr">Szukaj</span><input type="search" data-pole="szukaj" value="${esc(stan.szukaj)}" placeholder="🔍 Szukaj po nazwie" autocomplete="off"></label>
+  </div>`;
+}
+
 function htmlProdukty() {
   const lista = produktyKategorii();
   return `
-    <div class="pr-kategorie">${KATEGORIE.map(([k, e]) => `<button type="button" class="pr-kat" data-akcja="kategoria" data-v="${esc(k)}" aria-pressed="${!p.szukaj && p.kategoria === k}">${esc(e)}</button>`).join('')}</div>
-    <label class="pr-szukaj"><span class="sr">Szukaj</span><input type="search" data-pole="szukaj" value="${esc(p.szukaj)}" placeholder="🔍 Szukaj po nazwie" autocomplete="off"></label>
+    ${htmlFiltrow(p)}
     <ul class="pr-produkty">${lista.map(pr => {
       const ile = pr.warianty.reduce((s, w) => s + (wKoszyku(w.symbol) ? iloscPoz(wKoszyku(w.symbol)) : 0), 0);
       const otwarty = p.otwarty === pr.klucz;
@@ -54,8 +83,7 @@ function htmlProdukty() {
           <span class="pr-nazwa">${esc(pr.produkt)}</span>
           ${ile ? `<span class="pr-ile">w koszyku: ${esc(liczbaNaTekst(ile))}</span>` : ''}
         </button>
-        ${otwarty ? `<div class="pr-warianty">${pr.warianty.map(w => `<button type="button" class="pr-wariant" data-akcja="dodaj" data-v="${esc(w.symbol)}" ${w.stan !== null && w.stan <= 0 ? 'data-brak="1"' : ''}>
-            <b>${esc(w.wariant || 'Dodaj')}</b><span>${esc(kwotaTxt(w.cena))}</span>${w.stan !== null && w.stan <= 0 ? '<small>brak na stanie</small>' : ''}</button>`).join('')}</div>` : ''}
+        ${otwarty ? `<div class="pr-warianty">${pr.warianty.map(htmlWariantu).join('')}</div>` : ''}
       </li>`;
     }).join('') || '<li class="pr-pusto">Nic nie znaleziono. Spróbuj inaczej wpisać nazwę.</li>'}</ul>`;
 }
@@ -78,9 +106,15 @@ function htmlKoszyk() {
 
 function htmlPlatnosc() {
   const { platnosc } = ustawienia();
-  return `<div class="pr-formy">${FORMY.map(([f, e]) => `<button type="button" class="pr-forma" data-akcja="forma" data-v="${esc(f)}" aria-pressed="${p.forma === f}">${f === 'Gotówka' ? '💵' : '📱'} ${esc(e)}</button>`).join('')}</div>
-    ${p.forma === 'BLIK' ? `<div class="pr-blik">
-        <p>Klient wysyła BLIK na numer:<br><b class="pr-duzy">${esc(platnosc.blik || '')}</b><br>Kwota: <b>${esc(kwotaTxt(razem()))}</b></p>
+  const g = gotowka();
+  return `<div class="pr-formy">${FORMY.map(([f, e]) => `<button type="button" class="pr-forma${f === 'Podzielona' ? ' pr-forma-mala' : ''}" data-akcja="forma" data-v="${esc(f)}" aria-pressed="${p.forma === f}">${esc(e)}</button>`).join('')}</div>
+    ${p.forma === 'Podzielona' ? `<div class="pr-blik">
+        <label class="pr-pole"><span>Ile klient daje gotówką? (zł)</span>
+          <input data-pole="gotowka" inputmode="decimal" value="${esc(p.gotowkaTxt)}" placeholder="np. 50" autocomplete="off"></label>
+        <p class="pr-reszta">Reszta BLIK-iem: <b id="pr-reszta">${esc(isFinite(g) && g > 0 && g < razem() ? kwotaTxt(resztaBlik()) : '—')}</b></p>
+      </div>` : ''}
+    ${p.forma === 'BLIK' || p.forma === 'Podzielona' ? `<div class="pr-blik">
+        <p>Klient wysyła BLIK na numer:<br><b class="pr-duzy">${esc(platnosc.blik || '')}</b><br>Kwota: <b id="pr-kwota-blik">${esc(kwotaTxt(p.forma === 'Podzielona' ? (isFinite(g) && g > 0 && g < razem() ? resztaBlik() : 0) : razem()))}</b></p>
         <label class="pr-przelacznik"><input type="checkbox" data-pole="zaplacone" ${p.zaplacone ? 'checked' : ''}> Klient pokazał, że zapłacił</label>
         <p class="pr-podp">Jeśli klient zapłaci później – zostaw puste. Dane do płatności pójdą w SMS-ie.</p>
       </div>` : ''}
@@ -92,7 +126,7 @@ function htmlKlient() {
       <input type="tel" data-pole="telefon" inputmode="tel" value="${esc(p.telefon)}" placeholder="np. 600 100 200" autocomplete="off"></label>
     <label class="pr-pole"><span>Imię i nazwisko (nie trzeba)</span>
       <input data-pole="nazwa" value="${esc(p.nazwa)}" autocomplete="off"></label>
-    <p class="pr-razem">Razem: <b>${esc(kwotaTxt(razem()))}</b> · ${esc(p.forma === 'BLIK' ? 'BLIK' : 'gotówka')}</p>
+    <p class="pr-razem">Razem: <b>${esc(kwotaTxt(razem()))}</b> · ${esc(p.forma === 'BLIK' ? 'BLIK' : p.forma === 'Podzielona' ? `gotówka ${kwotaTxt(gotowka())} + BLIK ${kwotaTxt(resztaBlik())}` : 'gotówka')}</p>
     <button type="button" class="pr-glowny" data-akcja="zapisz" data-v="sms">✓ Zapisz i wyślij SMS</button>
     <button type="button" class="pr-drugi" data-akcja="zapisz" data-v="">Zapisz bez SMS-a</button>`;
 }
@@ -142,7 +176,13 @@ function sprawdzKrok() {
       if (!isFinite(c) || c < 0) return `Cena „${x.nazwa}” jest nieprawidłowa – wpisz liczbę, np. 70 albo 70,50.`;
     }
   }
-  if (p.krok === 'platnosc' && !p.forma) return 'Wybierz, jak klient płaci: Gotówka albo BLIK.';
+  if (p.krok === 'platnosc' && !p.forma) return 'Wybierz, jak klient płaci: Gotówka, BLIK albo część gotówką i reszta BLIK-iem.';
+  if (p.krok === 'platnosc' && p.forma === 'Podzielona') {
+    const g = gotowka();
+    if (!String(p.gotowkaTxt).trim()) return 'Wpisz, ile klient daje gotówką – resztę zapłaci BLIK-iem.';
+    if (!isFinite(g) || g <= 0) return 'Kwota gotówki jest nieprawidłowa – wpisz liczbę, np. 50 albo 50,50.';
+    if (g >= razem()) return `Gotówka (${kwotaTxt(g)}) musi być mniejsza niż razem (${kwotaTxt(razem())}). Jeśli klient płaci całość gotówką – wybierz „Gotówka”.`;
+  }
   return '';
 }
 
@@ -157,7 +197,10 @@ async function zapisz(kanal, przycisk) {
   przycisk.textContent = 'Zapisuję…';
   try {
     const koszyk = p.koszyk.map(({ symbol, nazwa, grupa, jm, cena_cennik, iloscTxt, cenaTxt }) => ({ symbol, nazwa, grupa, jm, cena_cennik, iloscTxt, cenaTxt }));
-    const numer = await zapiszProste({ koszyk, forma: p.forma, zaplacone: p.forma === 'Gotówka' || p.zaplacone, telefon: p.telefon, nazwa: p.nazwa, magazyn: 'GR' });
+    const platnosci = p.forma === 'Podzielona'
+      ? [{ forma: 'Gotówka', kwotaTxt: liczbaNaTekst(gotowka()), zaplacone: true }, { forma: 'BLIK', kwotaTxt: '', zaplacone: p.zaplacone }]
+      : [{ forma: p.forma, kwotaTxt: '', zaplacone: p.forma === 'Gotówka' || p.zaplacone }];
+    const numer = await zapiszProste({ koszyk, platnosci, telefon: p.telefon, nazwa: p.nazwa, magazyn: 'GR' });
     p = { ...nowy(), numer };
     zachowaj();
     if (kanal) wyslijSms(numer);
@@ -193,6 +236,12 @@ async function klik(e) {
     else p.koszyk.push({ k: uuid(), symbol: w.symbol, nazwa: w.nazwa, grupa: w.kategoria, jm: w.jm || 'szt.', cena_cennik: w.cena, iloscTxt: '1', cenaTxt: liczbaNaTekst(w.cena) });
     toast(`Dodano: ${w.nazwa}`, 'ok', 1800);
     blad('');
+  } else if (akcja === 'odejmij') {
+    const x = wKoszyku(v);
+    if (!x) return;
+    const n = iloscPoz(x) - 1;
+    if (n <= 0) { p.koszyk = p.koszyk.filter(y => y !== x); toast(`Usunięto z koszyka: ${x.nazwa}`, '', 1800); }
+    else x.iloscTxt = liczbaNaTekst(n);
   } else if (akcja === 'plus' || akcja === 'minus' || akcja === 'usun') {
     const x = p.koszyk.find(y => y.k === b.closest('[data-k]').dataset.k);
     if (!x) return;
@@ -202,7 +251,7 @@ async function klik(e) {
       if (n <= 0) p.koszyk = p.koszyk.filter(y => y !== x);
       else x.iloscTxt = liczbaNaTekst(n);
     }
-  } else if (akcja === 'forma') { p.forma = v; p.zaplacone = false; blad(''); }
+  } else if (akcja === 'forma') { p.forma = v; p.zaplacone = false; if (v !== 'Podzielona') p.gotowkaTxt = ''; blad(''); }
   else if (akcja === 'dalej') {
     const bl = sprawdzKrok();
     if (bl) { blad(bl); return; }
@@ -219,7 +268,7 @@ async function klik(e) {
   else if (akcja === 'sms-ponownie') { wyslijSms(p.numer); return; }
   else return;
   zachowaj();
-  render();
+  bezSkoku(render);
 }
 
 function wejscie(e) {
@@ -228,6 +277,13 @@ function wejscie(e) {
   if (pole === 'szukaj') { p.szukaj = e.target.value; p.otwarty = ''; $('.pr-produkty').outerHTML = htmlProdukty().match(/<ul class="pr-produkty">[\s\S]*<\/ul>/)[0];
     document.querySelectorAll('.pr-kat').forEach(k => k.setAttribute('aria-pressed', String(!p.szukaj && k.dataset.v === p.kategoria))); }
   else if (pole === 'cena') { const x = p.koszyk.find(y => y.k === e.target.closest('[data-k]').dataset.k); if (x) x.cenaTxt = e.target.value; const r = $('.pr-razem b'); if (r) r.textContent = kwotaTxt(razem()); }
+  else if (pole === 'gotowka') {
+    p.gotowkaTxt = e.target.value;
+    const g = gotowka(); const ok = isFinite(g) && g > 0 && g < razem();
+    const r = $('#pr-reszta'); if (r) r.textContent = ok ? kwotaTxt(resztaBlik()) : '—';
+    const kb = $('#pr-kwota-blik'); if (kb) kb.textContent = kwotaTxt(ok ? resztaBlik() : 0);
+    if (ok && p.blad) blad('');
+  }
   else if (pole === 'telefon' || pole === 'nazwa') p[pole] = e.target.value;
   else if (pole === 'zaplacone') p.zaplacone = e.target.checked;
   zachowaj();

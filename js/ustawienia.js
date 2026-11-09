@@ -3,7 +3,8 @@
 
 import * as db from './db.js';
 import * as sync from './sync.js';
-import { ustawienia, zapiszUstawienia, polaczone, gotowe, wywolaj, wersjaApi, adresZFinansow } from './api.js';
+import { ustawienia, zapiszUstawienia, polaczone, gotowe, wywolaj, wersjaApi, adresZFinansow, trybProsty } from './api.js';
+import { wypelnijPanele, klikPanelu } from './powiadomienia.js';
 import { $, esc, toast, okno } from './util.js';
 import { dane, wczytaj, nastepnyNumer, kodUzywanyPrzez } from './dane.js';
 import { WERSJA, WYMAGANE_API, PODMIOTY, PLATNOSC_DOMYSLNA, MAGAZYNY, symbolMagazynu } from './konfiguracja.js';
@@ -75,12 +76,14 @@ function render(komunikat = '', klasa = '') {
         <button type="button" class="drugorzedny" data-akcja="pelna">Pobierz wszystko od nowa</button>
       </div>
     </div>
+    <div class="panel" data-push="panel"></div>
     <div class="panel">
       <h2>Aplikacja</h2>
       <p>One River Stoisko ${WERSJA}. Zamówienia zapisują się bez internetu i wysyłają same, gdy wróci połączenie.</p>
       <div class="przyciski"><button type="button" class="niebezpieczny" data-akcja="wyczysc">Usuń dane z tego urządzenia</button></div>
     </div>` : ''}
   </section>`;
+  wypelnijPanele(trybProsty());
 }
 
 async function zapisz(form) {
@@ -130,6 +133,7 @@ async function zapisz(form) {
 async function klik(e) {
   const b = e.target.closest('[data-akcja]');
   if (!b) return;
+  if (await klikPanelu(b, toast, trybProsty())) return;
   const akcja = b.dataset.akcja;
   if (akcja === 'pokaz-token') {
     const i = b.previousElementSibling;
