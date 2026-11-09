@@ -7,8 +7,8 @@
 import { $, $$, esc, zaokr, kwotaTxt, iloscTxt, liczba, liczbaNaTekst, uuid, dataLok, toast, num, odmiana, okno } from './util.js';
 import { dane, wczytaj, szukajProduktow, nastepnyNumer, zapamietajNumer, klientPoTelefonie, telefonE164, klient as klientId,
   produktSymbolu, cenaKlienta, opisCenKlienta, zamowienie, pozycjeZamowienia, ustawienieTekst } from './dane.js';
-import { ustawienia, gotowe } from './api.js';
-import { FORMY, STATUSY, OSOBY_WYSYLKI, SYMBOL_TRANSPORTU, TRANSPORT_DOMYSLNY, czyTransport, symbolMagazynu, MAGAZYNY, PRZEWOZNICY } from './konfiguracja.js';
+import { ustawienia, gotowe, wywolaj } from './api.js';
+import { FORMY, STATUSY, OSOBY_WYSYLKI, SYMBOL_TRANSPORTU, TRANSPORT_DOMYSLNY, czyTransport, symbolMagazynu, MAGAZYNY, PRZEWOZNICY, MIEDZYNARODOWY, czyInPost } from './konfiguracja.js';
 import { rozpoznaj } from './inpost.js';
 import * as sync from './sync.js';
 
@@ -22,6 +22,7 @@ const transportDomyslny = () => {
 const pusty = () => ({
   tryb: 'nowe', edytowane: '', data: '', typ: 'miejsce', przewoznik: 'InPost', koszyk: [], klientId: '', telefon: '', nazwa: '', email: '', uwagi: '',
   szukaj: '', grupa: '', paczkomat: '', adres: '', nrPrzesylki: '', kodNadania: '', transportTxt: '', realizuje: '', magazyn: '',
+  waluta: 'PLN', eurTxt: '', jezyk: '',
   platnosci: [{ k: uuid(), forma: 'Przelew', kwotaTxt: '', zaplacone: false }],
 });
 
@@ -62,6 +63,52 @@ function kosztTransportu() {
   return isFinite(v) ? zaokr(v) : NaN;
 }
 const suma = () => zaokr(sumaProduktow() + (isFinite(kosztTransportu()) ? kosztTransportu() : 0));
+
+// ───────────────────────── euro i język wiadomości ─────────────────────────
+// Zamówienie w EUR: ceny z katalogu (zł) przeliczone po kursie NBP i zaokrąglone do pełnych euro; kwotę można poprawić.
+// W arkuszu zostają kwoty w złotych (paragon, rozliczenia), a obok: waluta, kurs, suma_eur.
+const KLUCZ_KURSU = 'or-stoisko-kurs-eur';
+const kursZapisany = () => { try { return JSON.parse(localStorage.getItem(KLUCZ_KURSU)) || null; } catch { return null; } };
+let kursPobierany = false;
+async function pobierzKurs() {
+  if (kursPobierany || !navigator.onLine) return;
+  kursPobierany = true;
+  try {
+    const jutro = dataLok(new Date(Date.now() + 86400000));   // tabela z dziś (NBP publikuje w dni robocze ok. 12:00)
+    const w = await wywolaj('kursNBP', { waluta: 'EUR', data: jutro }, 30000);
+    if (w && w.kurs > 0) {
+      localStorage.setItem(KLUCZ_KURSU, JSON.stringify({ kurs: w.kurs, data: w.data_tabeli, tabela: w.tabela, pobrano: dataLok() }));
+      if ($('#platnosci')) odswiezPlatnosci();
+    }
+  } catch { /* zostaje ostatni zapisany kurs */ } finally { kursPobierany = false; }
+}
+const kursEur = () => num(kursZapisany()?.kurs);
+const sumaEurWyliczona = () => (kursEur() > 0 ? Math.round(suma() / kursEur()) : NaN);
+function sumaEur() {
+  const t = String(s.eurTxt || '').trim();
+  return t ? zaokr(liczba(t)) : sumaEurWyliczona();
+}
+const jezykWiadomosci = () => s.jezyk || (s.waluta === 'EUR' || s.przewoznik === MIEDZYNARODOWY || (telefonE164(s.telefon) && !telefonE164(s.telefon).startsWith('+48')) ? 'en' : 'pl');
+function htmlWaluty() {
+  const k = kursZapisany();
+  const eur = s.waluta === 'EUR';
+  return `<div class="chipy male waluta">
+      <button type="button" class="chip" data-akcja="waluta" data-v="PLN" aria-pressed="${!eur}">PLN</button>
+      <button type="button" class="chip" data-akcja="waluta" data-v="EUR" aria-pressed="${eur}">EUR – przelew na konto w euro</button>
+    </div>
+    ${eur ? `<div class="eur-panel">
+      <p class="podpowiedz">${k ? `Kurs NBP ${esc(String(k.kurs).replace('.', ','))} zł (tabela ${esc(k.tabela || '')} z ${esc(k.data || '')}).` : 'Pobieram kurs NBP…'}
+        ${ustawienia().platnosc.kontoEur ? '' : '<b class="blad">Uzupełnij konto EUR (IBAN) w Ustawieniach.</b>'}</p>
+      <label class="cena eur-kwota"><span>Do zapłaty w euro (zaokrąglone; możesz poprawić)</span>
+        <input data-pole="eur" inputmode="decimal" autocomplete="off" value="${esc(s.eurTxt)}" placeholder="${esc(isFinite(sumaEurWyliczona()) ? String(sumaEurWyliczona()) : '')}"></label>
+      <p class="podpowiedz">${esc(kwotaTxt(suma()))} ≈ <b id="suma-eur">${isFinite(sumaEur()) ? esc(String(sumaEur()).replace('.', ',')) + ' €' : '—'}</b></p>
+    </div>` : ''}`;
+}
+function htmlJezyka() {
+  const j = jezykWiadomosci();
+  return `<span class="etykieta">Wiadomość do klienta</span>
+    <div class="chipy male jezyk">${[['pl', 'po polsku'], ['en', 'po angielsku']].map(([w, e]) => `<button type="button" class="chip" data-akcja="jezyk" data-v="${w}" aria-pressed="${j === w}">${e}</button>`).join('')}</div>`;
+}
 
 function opisRabatu(p) {
   const c = cena(p);
@@ -154,7 +201,7 @@ function opisKlienta() {
 function htmlWysylki() {
   if (s.typ !== 'wysylka') return '';
   const t = kosztTransportu();
-  const pp = s.przewoznik !== 'InPost';
+  const pp = !czyInPost(s.przewoznik);
   const chipyPrzewoznika = `<div class="chipy male przewoznik">${PRZEWOZNICY.map(([w, e]) => `<button type="button" class="chip" data-akcja="przewoznik" data-v="${esc(w)}" aria-pressed="${s.przewoznik === w}">${esc(e)}</button>`).join('')}</div>`;
   if (pp) {
     return `<article class="panel wysylka-panel">
@@ -174,7 +221,7 @@ function htmlWysylki() {
   </article>`;
   }
   return `<article class="panel wysylka-panel">
-    <header><h2>Wysyłka InPost</h2></header>
+    <header><h2>Wysyłka ${esc(s.przewoznik || 'InPost')}</h2></header>
     ${chipyPrzewoznika}
     <label class="przycisk szeroki zrzuty${ocrTrwa ? ' trwa' : ''}">
       <input type="file" accept="image/*" multiple data-pole="zrzuty" hidden>
@@ -182,8 +229,8 @@ function htmlWysylki() {
     </label>
     <p class="podpowiedz">Zaznacz oba zrzuty naraz: 1) ekran z zapisanym odbiorcą (imię, nazwisko, telefon, e-mail, paczkomat), 2) etykietę – „Szczegóły przesyłki” (nr przesyłki, kod nadania). Dane wpiszą się w pola poniżej i w dane klienta – sprawdź je przed zapisem.
       <button type="button" class="link" data-akcja="wyczysc-wysylke">Wyczyść dane wysyłki i klienta</button></p>
-    <label class="pole"><span class="etykieta">Paczkomat</span>
-      <input data-pole="paczkomat" autocomplete="off" autocapitalize="characters" value="${esc(s.paczkomat)}" placeholder="np. WAWR01BAPP (puste = kurier)"></label>
+    <label class="pole"><span class="etykieta">${s.przewoznik === MIEDZYNARODOWY ? 'Paczkomat / punkt za granicą' : 'Paczkomat'}</span>
+      <input data-pole="paczkomat" autocomplete="off" autocapitalize="characters" value="${esc(s.paczkomat)}" placeholder="${s.przewoznik === MIEDZYNARODOWY ? 'np. FR004437' : 'np. WAWR01BAPP (puste = kurier)'}"></label>
     <label class="pole"><span class="etykieta">Adres ${s.paczkomat ? 'paczkomatu' : 'dostawy'}</span>
       <input data-pole="adres" autocomplete="off" value="${esc(s.adres)}" placeholder="ulica, kod, miejscowość"></label>
     <div class="dwa-pola">
@@ -234,6 +281,7 @@ const odswiezMagazyn = () => { const el = $('#magazyn-zam'); if (el) el.innerHTM
 
 export function render(arg) {
   if (!gotowe()) { location.replace('#ustawienia'); return; }
+  if (s.waluta === 'EUR' && kursZapisany()?.pobrano !== dataLok()) pobierzKurs();
   if (location.hash.startsWith('#edytuj/')) {
     if (s.tryb !== 'edycja' || s.edytowane !== arg) {
       const wynik = zaladujDoEdycji(arg);
@@ -289,10 +337,12 @@ export function render(arg) {
             <datalist id="lista-klientow">${dane.klienci.filter(k => k.nazwa).map(k => `<option value="${esc(k.nazwa)}">`).join('')}</datalist></label>
           <label class="pole"><span class="etykieta">E-mail (nieobowiązkowo)</span>
             <input data-pole="email" type="email" inputmode="email" autocomplete="off" value="${esc(s.email)}"></label>
+          <div id="jezyk">${htmlJezyka()}</div>
         </article>
 
         <article class="panel">
           <h2>Płatność</h2>
+          <div id="waluta">${htmlWaluty()}</div>
           <div id="platnosci">${htmlPlatnosci()}</div>
           <label class="pole"><span class="etykieta">Uwagi (nieobowiązkowo)</span>
             <textarea data-pole="uwagi" rows="2">${esc(s.uwagi)}</textarea></label>
@@ -304,6 +354,7 @@ export function render(arg) {
             <button type="button" class="link" data-akcja="zatwierdz" data-kanal="sms">Zapisz i wyślij klientowi nowe podsumowanie SMS</button>`
           : `<button type="button" class="glowny" data-akcja="zatwierdz" data-kanal="sms">Zatwierdź i wyślij SMS</button>
             <button type="button" class="whatsapp" data-akcja="zatwierdz" data-kanal="wa">Zatwierdź i wyślij WhatsApp</button>
+            <button type="button" class="drugorzedny" data-akcja="zatwierdz" data-kanal="email">Zatwierdź i wyślij e-mail</button>
             <button type="button" class="link" data-akcja="zatwierdz" data-kanal="">Zatwierdź bez wiadomości</button>`}
         </div>
       </div>
@@ -332,6 +383,9 @@ function odswiezPlatnosci() {
   const pole = el?.dataset?.pole === 'kwota' ? el.closest('.platnosc')?.dataset.k : null;
   const pos = pole ? el.selectionStart : 0;
   $('#platnosci').innerHTML = htmlPlatnosci();
+  const w = $('#waluta');
+  if (w && document.activeElement?.dataset?.pole !== 'eur') w.innerHTML = htmlWaluty();
+  else { const se = $('#suma-eur'); if (se) se.textContent = isFinite(sumaEur()) ? String(sumaEur()).replace('.', ',') + ' €' : '—'; }
   if (pole) { const i = $(`.platnosc[data-k="${pole}"] [data-pole="kwota"]`); i?.focus(); i?.setSelectionRange(pos, pos); }
 }
 function odswiezSume() {
@@ -385,6 +439,11 @@ async function wczytajZrzuty(pliki) {
     if (d.adres) s.adres = d.adres;
     if (d.nrPrzesylki) { s.nrPrzesylki = d.nrPrzesylki; znalezione.push('nr przesyłki'); }
     if (d.kodNadania) { s.kodNadania = d.kodNadania; znalezione.push('kod nadania'); }
+    if (d.miedzynarodowa) {
+      s.przewoznik = MIEDZYNARODOWY;
+      if (s.waluta !== 'EUR') { s.waluta = 'EUR'; pobierzKurs(); }
+      znalezione.push(`InPost International${d.kraj ? ' (' + d.kraj + ')' : ''} – płatność w EUR, wiadomość po angielsku`);
+    }
     const k = klientPoTelefonie(s.telefon);
     if (k) { s.klientId = String(k.id); if (!s.email && k.email) s.email = k.email; }
     toast(znalezione.length ? `Odczytano: ${znalezione.join(', ')}. Sprawdź dane.` : 'Nie udało się odczytać danych – wpisz je ręcznie.', znalezione.length ? 'ok' : 'blad', 5000);
@@ -419,6 +478,7 @@ function wejscie(e) {
     }
     ustawKlienta(k || (biezacyKlient() && !telefonE164(biezacyKlient().telefon) ? biezacyKlient() : null));
     $('#opis-klienta').textContent = opisKlienta();
+    const j = $('#jezyk'); if (j && !s.jezyk) j.innerHTML = htmlJezyka();
   } else if (pole === 'nazwa-klienta') {
     s.nazwa = v;
     const k = dane.klienci.find(x => x.nazwa && String(x.nazwa).trim().toLowerCase() === v.trim().toLowerCase());
@@ -432,6 +492,7 @@ function wejscie(e) {
   else if (pole === 'paczkomat') s.paczkomat = v.toUpperCase();
   else if (pole === 'transport') { s.transportTxt = v; $('#suma').textContent = kwotaTxt(suma()); $('#suma-opis').textContent = opisSumy(); odswiezPasek(); odswiezPlatnosci(); }
   else if (pole === 'kwota') { const p = platnoscZ(e.target); if (p) { p.kwotaTxt = v; odswiezPlatnosci(); } }
+  else if (pole === 'eur') { s.eurTxt = v; const se = $('#suma-eur'); if (se) se.textContent = isFinite(sumaEur()) ? String(sumaEur()).replace('.', ',') + ' €' : '—'; }
   else if (pole === 'zaplacone') { const p = platnoscZ(e.target); if (p) { p.zaplacone = e.target.checked; odswiezPlatnosci(); } }
   else {
     const [li, p] = pozycjaZ(e.target);
@@ -485,7 +546,17 @@ async function klik(e) {
     odswiezMagazyn();
   } else if (akcja === 'przewoznik') {
     s.przewoznik = b.dataset.v;
+    if (s.przewoznik === MIEDZYNARODOWY && s.waluta !== 'EUR') { s.waluta = 'EUR'; pobierzKurs(); odswiezPlatnosci(); }
     zachowaj(); odswiezWysylke();
+    const j = $('#jezyk'); if (j) j.innerHTML = htmlJezyka();
+  } else if (akcja === 'waluta') {
+    s.waluta = b.dataset.v;
+    if (s.waluta === 'EUR') pobierzKurs(); else s.eurTxt = '';
+    odswiezPlatnosci();
+    const j = $('#jezyk'); if (j) j.innerHTML = htmlJezyka();
+  } else if (akcja === 'jezyk') {
+    s.jezyk = b.dataset.v;
+    const j = $('#jezyk'); if (j) j.innerHTML = htmlJezyka();
   } else if (akcja === 'realizuje') {
     s.realizuje = s.realizuje === b.dataset.osoba ? '' : b.dataset.osoba;
     $$('[data-akcja="realizuje"]').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.osoba === s.realizuje)));
@@ -568,7 +639,7 @@ function zaladujDoEdycji(id) {
   let platnosci = [];
   try { platnosci = JSON.parse(z.platnosci || '[]'); } catch { /* starsze zamówienie */ }
   if (!platnosci.length) platnosci = [{ forma: ['Mieszana', ''].includes(z.forma_platnosci) ? 'Przelew' : z.forma_platnosci, kwota: num(z.suma_brutto), zaplacone: z.status === STATUSY.oplacone }];
-  const [paczkomat, ...resztaAdresu] = /^[A-Z]{3}[A-Z0-9]{2,9}(,|$)/.test(String(z.adres_dostawy || '')) ? String(z.adres_dostawy).split(/,\s*/) : ['', z.adres_dostawy || ''];
+  const [paczkomat, ...resztaAdresu] = /^[A-Z]{2,3}[A-Z0-9]{2,9}(,|$)/.test(String(z.adres_dostawy || '')) ? String(z.adres_dostawy).split(/,\s*/) : ['', z.adres_dostawy || ''];
   s = {
     ...pusty(), tryb: 'edycja', edytowane: z.id, typ: z.typ === 'wysylka' || trans || z.dostawa ? 'wysylka' : 'miejsce',
     koszyk: poz.filter(p => !czyTransport(p.symbol)).map(p => ({
@@ -579,8 +650,9 @@ function zaladujDoEdycji(id) {
     transPosId: trans?.id || '', transportTxt: trans ? liczbaNaTekst(num(trans.cena)) : (num(z.koszt_dostawy) ? liczbaNaTekst(num(z.koszt_dostawy)) : ''),
     klientId: k ? String(k.id) : '', telefon: k?.telefon || '', nazwa: k?.nazwa || '', email: k?.email || '', uwagi: z.uwagi || '',
     przewoznik: z.przewoznik || (/poczta/i.test(z.dostawa || '') ? 'Poczta Polska' : 'InPost'),
-    paczkomat: z.przewoznik && z.przewoznik !== 'InPost' ? '' : paczkomat,
-    adres: z.przewoznik && z.przewoznik !== 'InPost' ? String(z.adres_dostawy || '') : resztaAdresu.join(', '), nrPrzesylki: z.nr_przesylki || '', kodNadania: z.kod_nadania || '', realizuje: z.realizuje || '', magazyn: z.magazyn ? symbolMagazynu(z.magazyn) : '', data: String(z.data || '').slice(0, 10),
+    paczkomat: !czyInPost(z.przewoznik) ? '' : paczkomat,
+    adres: !czyInPost(z.przewoznik) ? String(z.adres_dostawy || '') : resztaAdresu.join(', '),
+    waluta: z.waluta === 'EUR' ? 'EUR' : 'PLN', eurTxt: z.waluta === 'EUR' && z.suma_eur !== '' && z.suma_eur != null ? liczbaNaTekst(num(z.suma_eur)) : '', jezyk: z.jezyk || '', nrPrzesylki: z.nr_przesylki || '', kodNadania: z.kod_nadania || '', realizuje: z.realizuje || '', magazyn: z.magazyn ? symbolMagazynu(z.magazyn) : '', data: String(z.data || '').slice(0, 10),
     platnosci: platnosci.map((p, i) => ({ k: uuid(), forma: p.forma, kwotaTxt: i === platnosci.length - 1 ? '' : liczbaNaTekst(num(p.kwota)), zaplacone: Boolean(p.zaplacone) })),
   };
   return true;
@@ -597,11 +669,13 @@ function sprawdz(kanal) {
   }
   if (s.typ === 'wysylka') {
     if (!isFinite(kosztTransportu()) || kosztTransportu() < 0) return 'Sprawdź kwotę transportu.';
-    if (s.przewoznik === 'InPost' && !s.paczkomat.trim() && !s.adres.trim()) return 'Wpisz paczkomat albo adres dostawy.';
-    if (s.przewoznik !== 'InPost' && !s.adres.trim()) return 'Wpisz adres dostawy.';
+    if (czyInPost(s.przewoznik) && !s.paczkomat.trim() && !s.adres.trim()) return 'Wpisz paczkomat albo adres dostawy.';
+    if (!czyInPost(s.przewoznik) && !s.adres.trim()) return 'Wpisz adres dostawy.';
   }
   if (s.telefon && !telefonE164(s.telefon)) return 'Sprawdź numer telefonu klienta.';
-  if (kanal && !telefonE164(s.telefon)) return `Wpisz telefon klienta, żeby wysłać ${kanal === 'wa' ? 'WhatsApp' : 'SMS'}.`;
+  if (kanal === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.email.trim())) return 'Wpisz e-mail klienta, żeby wysłać wiadomość e-mailem.';
+  if (kanal && kanal !== 'email' && !telefonE164(s.telefon)) return `Wpisz telefon klienta, żeby wysłać ${kanal === 'wa' ? 'WhatsApp' : 'SMS'}.`;
+  if (s.waluta === 'EUR' && !(sumaEur() > 0)) return navigator.onLine ? 'Brak kursu euro – wpisz kwotę w euro albo spróbuj za chwilę.' : 'Bez internetu nie ma kursu euro – wpisz kwotę w euro ręcznie.';
   if (s.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.email.trim())) return 'Sprawdź adres e-mail.';
   const kw = kwotyPlatnosci();
   if (kw.some(p => !isFinite(p.kwota) || p.kwota < 0)) return 'Sprawdź kwoty płatności – suma części nie może przekraczać kwoty zamówienia.';
@@ -683,10 +757,12 @@ async function zapiszStan() {
       platnosci: JSON.stringify(kw.map(p => ({ forma: p.forma, kwota: p.kwota, zaplacone: ZAPLACONE_ZAWSZE.has(p.forma) || Boolean(p.zaplacone) }))),
       kw_gotowka: sumaFormy('Gotówka'), kw_blik: sumaFormy('BLIK'), kw_przelew: sumaFormy('Przelew'), kw_karta: sumaFormy('Karta'),
       zaplacono: zapl, suma_brutto: razem, wartosc_produktow: sumaProduktow(),
-      dostawa_id: '', dostawa: wysylka ? (s.przewoznik !== 'InPost' ? s.przewoznik : s.paczkomat.trim() ? 'Paczkomat InPost' : 'Kurier InPost') : '',
+      dostawa_id: '', dostawa: wysylka ? (!czyInPost(s.przewoznik) ? s.przewoznik : (s.paczkomat.trim() ? 'Paczkomat ' : 'Kurier ') + (s.przewoznik || 'InPost')) : '',
       przewoznik: wysylka ? s.przewoznik : '',
       koszt_dostawy: wysylka ? transport : 0,
-      adres_dostawy: wysylka ? (s.przewoznik !== 'InPost' ? s.adres.trim() : [s.paczkomat.trim(), s.adres.trim()].filter(Boolean).join(', ')) : '',
+      adres_dostawy: wysylka ? (!czyInPost(s.przewoznik) ? s.adres.trim() : [s.paczkomat.trim(), s.adres.trim()].filter(Boolean).join(', ')) : '',
+      waluta: s.waluta === 'EUR' ? 'EUR' : '', kurs: s.waluta === 'EUR' ? (stare?.waluta === 'EUR' && stare.kurs ? stare.kurs : kursEur() || '') : '', suma_eur: s.waluta === 'EUR' ? sumaEur() : '',
+      jezyk: jezykWiadomosci(),
       nr_przesylki: wysylka ? s.nrPrzesylki.trim() : '', kod_nadania: wysylka ? s.kodNadania.trim() : '',
       realizuje: wysylka ? s.realizuje : '',
       status: stare?.status === STATUSY.anulowane ? stare.status : (zapl >= razem - 0.005 ? STATUSY.oplacone : STATUSY.czeka),
@@ -743,7 +819,7 @@ async function zatwierdz(kanal, przycisk) {
       s = wczytajSzkic();
     } else {
       const forma = s.platnosci[0]?.forma || 'Przelew';
-      s = { ...pusty(), typ: s.typ, przewoznik: s.przewoznik, realizuje: s.realizuje, platnosci: [{ k: uuid(), forma, kwotaTxt: '', zaplacone: ZAPLACONE_ZAWSZE.has(forma) }] };
+      s = { ...pusty(), typ: s.typ, przewoznik: s.przewoznik, realizuje: s.realizuje, waluta: s.waluta, platnosci: [{ k: uuid(), forma, kwotaTxt: '', zaplacone: ZAPLACONE_ZAWSZE.has(forma) }] };
       zachowaj();
     }
     const ile = paczki.ZAMOWIENIA_POZ.filter(p => p.status !== 'usunięta').length;

@@ -37,18 +37,25 @@ export function rozbierzTekst(tekst) {
     if (i < 0) i = linie.findIndex(l => etykieta.test(l));
     return i >= 0 ? linie[i + 1] || '' : '';
   };
-  const w = { imie: '', nazwisko: '', nazwa: '', telefon: '', email: '', paczkomat: '', adres: '', nrPrzesylki: '', kodNadania: '' };
+  const w = { imie: '', nazwisko: '', nazwa: '', telefon: '', email: '', paczkomat: '', adres: '', nrPrzesylki: '', kodNadania: '', kraj: '', miedzynarodowa: false };
 
   w.imie = po(/^imi[eę]\*?$/i).replace(/[^\p{L}\s-]/gu, '').trim();
   w.nazwisko = po(/^nazwisko\*?$/i).replace(/[^\p{L}\s-]/gu, '').trim();
   if (!w.imie && !w.nazwisko) {
     const odb = po(/^odbiorca\b/i);                 // „Szczegóły przesyłki”: ODBIORCA ROZMIAR / Jarosław Koch Mini
-    if (odb) w.nazwa = odb.replace(/\s+(mini|gabaryt\s*[abc]|[abc]|mały|średni|duży|small|medium|large)$/i, '').trim();
+    if (odb) w.nazwa = odb.replace(/\s+(mini|gabaryt\s*[abc]|[abc]|mał[ya]|średni[a]?|duż[ya]|small|medium|large)$/i, '').trim();
   }
   if (!w.nazwa) w.nazwa = [w.imie, w.nazwisko].filter(Boolean).join(' ');
 
-  const tel = linie.find(l => /\+?48\D{0,4}\d{3}\D?\d{3}\D?\d{3}/.test(l)) || po(/numer telefonu/i);
-  if (tel) {
+  // InPost International: „Prefiks / +33 v 7 82 05 48 85” – numer zagraniczny z kierunkowym
+  const zPref = linie.find(l => /^\+\s?(\d{1,3})\b/.test(l) && !/^\+\s?48\b/.test(l));
+  const tel = zPref ? '' : linie.find(l => /\+?48\D{0,4}\d{3}\D?\d{3}\D?\d{3}/.test(l)) || po(/numer telefonu/i);
+  if (zPref) {
+    const pref = /^\+\s?(\d{1,3})\b/.exec(zPref)[1];
+    let reszta = tylkoCyfry(zPref.replace(/^\+\s?\d{1,3}\b/, ''));
+    if (reszta.length < 6) reszta = tylkoCyfry(linie[linie.indexOf(zPref) + 1] || '');
+    if (reszta.length >= 6 && reszta.length <= 12) { w.telefon = '+' + pref + reszta.replace(/^0/, ''); w.miedzynarodowa = true; }
+  } else if (tel) {
     const m = /(\d{3})\D?(\d{3})\D?(\d{3})(?!.*\d{3}\D?\d{3})/.exec(tel.replace(/^\D*\+?48/, ''));
     if (m) w.telefon = m[1] + m[2] + m[3];
   }
@@ -67,6 +74,9 @@ export function rozbierzTekst(tekst) {
       adres.push(linie[i]);
     }
     w.adres = adres.join(', ').replace(/\s+PL$/, '');
+    // kraj na końcu adresu (np. „65-400 ARGELES GAZOST FR”) albo w kodzie punktu (FR004437)
+    const kraj = (/\s([A-Z]{2})$/.exec(adres[adres.length - 1] || '') || [])[1] || (/^([A-Z]{2})\d{4,}$/.exec(w.paczkomat) || [])[1] || '';
+    if (kraj && kraj !== 'PL') { w.kraj = kraj; w.miedzynarodowa = true; }
   }
 
   const nr = linie.map(tylkoCyfry).find(c => c.length === 24);

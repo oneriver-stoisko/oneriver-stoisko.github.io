@@ -63,6 +63,15 @@ function render(komunikat = '', klasa = '') {
       <label class="pole"><span class="etykieta">Telefon do BLIK</span>
         <input name="blik" inputmode="tel" autocomplete="off" value="${esc(u.platnosc.blik)}"></label>
 
+      <h2>Przelew w euro (klienci zagraniczni)</h2>
+      <label class="pole"><span class="etykieta">Odbiorca przelewu EUR</span>
+        <input name="odbiorcaEur" autocomplete="off" value="${esc(u.platnosc.odbiorcaEur)}" placeholder="np. ONE RIVER sp. z o.o."></label>
+      <label class="pole"><span class="etykieta">Konto EUR (IBAN)</span>
+        <input name="kontoEur" autocomplete="off" autocapitalize="characters" spellcheck="false" value="${esc(u.platnosc.kontoEur)}" placeholder="PL00 0000 0000 0000 0000 0000 0000"></label>
+      <label class="pole"><span class="etykieta">BIC / SWIFT</span>
+        <input name="swift" autocomplete="off" autocapitalize="characters" spellcheck="false" value="${esc(u.platnosc.swift)}" placeholder="np. BREXPLPWMBK"></label>
+      <span class="podpowiedz">Trafia do wiadomości przy zamówieniach płatnych w euro.</span>
+
       <div class="przyciski"><button type="submit">Zapisz</button>
         ${!pierwszy ? '<a class="przycisk drugorzedny" href="#nowe">Wróć</a>' : ''}</div>
       <p class="komunikat ${klasa}" aria-live="polite">${komunikat}</p>
@@ -118,6 +127,9 @@ async function zapisz(form) {
     odbiorca: f.odbiorca.value.trim() || PLATNOSC_DOMYSLNA.odbiorca,
     konto: f.konto.value.trim(),
     blik: f.blik.value.trim(),
+    odbiorcaEur: f.odbiorcaEur.value.trim(),
+    kontoEur: f.kontoEur.value.trim().toUpperCase(),
+    swift: f.swift.value.trim().toUpperCase(),
   };
   zapiszUstawienia({ url, token, kto, kod, podmiot: f.podmiot.value, magazyn: f.magazyn.value, wydarzenie: f.wydarzenie.value.trim(), platnosc });
 

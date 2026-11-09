@@ -4,10 +4,11 @@
 
 import { $, $$, esc, kwotaTxt, iloscTxt, num, zaokr, liczba, liczbaNaTekst, dataKrotko, toast, okno } from './util.js';
 import { wczytaj, zamowienie, pozycjeZamowienia, klient, telefonE164, telefonCzytelny, opisCenKlienta } from './dane.js';
-import { STATUSY, PLATNE_POZNIEJ, FORMY, ETYKIETY_STATUSOW, OSOBY_WYSYLKI, czyTransport } from './konfiguracja.js';
+import { STATUSY, PLATNE_POZNIEJ, FORMY, ETYKIETY_STATUSOW, OSOBY_WYSYLKI, czyTransport, czyInPost } from './konfiguracja.js';
 import { eksportujEpp } from './eksport-epp.js';
 import { ustawienia, wywolaj } from './api.js';
-import { trescWiadomosci, trescDlaWysylki, linkSms, linkWhatsApp, linkWhatsAppDoGrupy, otworzLink, platnosciZamowienia, linkSledzenia } from './wiadomosc.js';
+import { trescWiadomosci, trescDlaWysylki, linkSms, linkWhatsApp, linkWhatsAppDoGrupy, otworzLink, platnosciZamowienia, linkSledzenia,
+  linkEmail, tematWiadomosci, jezykZamowienia, euroTxt } from './wiadomosc.js';
 import { dataLok } from './util.js';
 import * as sync from './sync.js';
 
@@ -31,7 +32,7 @@ const wartoscEd = p => zaokr(cenaEd(p) * iloscEd(p));
 const kosztEd = z => { const t = String(edycja.kosztTxt || '').trim(); return t ? zaokr(liczba(t)) : num(z.koszt_dostawy); };
 const sumaProdEd = poz => zaokr(poz.reduce((a, p) => a + (isFinite(wartoscEd(p)) ? wartoscEd(p) : 0), 0));
 
-function htmlEdycji(z, poz, tel) {
+function htmlEdycji(z, poz, tel, mail) {
   return `<article class="panel do-potwierdzenia">
       <h2>Sprawdź zamówienie z formularza</h2>
       <p class="podpowiedz">Klient widział ceny ${esc(opisCenKlienta(klient(z.klient_id)) || 'detaliczne')}. Możesz wpisać cenę po rabacie, zmienić ilość i koszt dostawy.</p>
@@ -50,6 +51,7 @@ function htmlEdycji(z, poz, tel) {
       <div class="zatwierdz">
         <button type="button" class="glowny" data-akcja="potwierdz" data-kanal="sms" ${tel ? '' : 'disabled'}>Potwierdź i wyślij SMS</button>
         <button type="button" class="whatsapp" data-akcja="potwierdz" data-kanal="wa" ${tel ? '' : 'disabled'}>Potwierdź i wyślij WhatsApp</button>
+        <button type="button" class="drugorzedny" data-akcja="potwierdz" data-kanal="email" ${mail ? '' : 'disabled'}>Potwierdź i wyślij e-mail</button>
         <button type="button" class="link" data-akcja="potwierdz" data-kanal="">Potwierdź bez wiadomości</button>
         <button type="button" class="link" data-akcja="anuluj">Odrzuć zamówienie</button>
       </div>
@@ -110,6 +112,7 @@ function render(arg) {
   if (nowe && edycja?.id !== z.id) zacznijEdycje(z, poz);
   const k = klient(z.klient_id);
   const tel = telefonE164(k?.telefon);
+  const mail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(k?.email || '').trim()) ? String(k.email).trim() : '';
   const czeka = sync.stanSynchronizacji().oczekujaceKlucze?.has('ZAMOWIENIA|' + z.id);
   const anulowane = z.status === STATUSY.anulowane;
 
@@ -123,14 +126,16 @@ function render(arg) {
 
     <div class="uklad-zam">
       <div>
-        ${nowe ? htmlEdycji(z, poz, tel) : `<article class="panel">
+        ${nowe ? htmlEdycji(z, poz, tel, mail) : `<article class="panel">
           <h2>Wiadomość do klienta</h2>
-          ${tel ? `<p class="podpowiedz">Do: <b>${esc(k.nazwa || '')}</b> ${esc(telefonCzytelny(tel))}</p>` : '<p class="podpowiedz blad">To zamówienie nie ma telefonu klienta.</p>'}
+          ${tel || mail ? `<p class="podpowiedz">Do: <b>${esc(k.nazwa || '')}</b> ${esc([tel ? telefonCzytelny(tel) : '', mail].filter(Boolean).join(' · '))}</p>` : '<p class="podpowiedz blad">To zamówienie nie ma telefonu ani e-maila klienta.</p>'}
+          <div class="chipy male jezyk">${[['pl', 'po polsku'], ['en', 'po angielsku']].map(([w, e]) => `<button type="button" class="chip" data-akcja="jezyk" data-v="${w}" aria-pressed="${jezykZamowienia(z) === w}" ${anulowane ? 'disabled' : ''}>${e}</button>`).join('')}</div>
           <label class="pole"><span class="sr">Treść wiadomości</span>
             <textarea id="tresc" rows="15" ${anulowane ? 'disabled' : ''}>${esc(tresc)}</textarea></label>
           <div class="zatwierdz">
             <button type="button" class="glowny" data-akcja="sms" ${tel && !anulowane ? '' : 'disabled'}>Wyślij SMS</button>
             <button type="button" class="whatsapp" data-akcja="wa" ${tel && !anulowane ? '' : 'disabled'}>Wyślij WhatsApp</button>
+            <button type="button" class="drugorzedny" data-akcja="email" ${mail && !anulowane ? '' : 'disabled'}>Wyślij e-mail${mail ? '' : ' (brak adresu)'}</button>
             <button type="button" class="link" data-akcja="kopiuj">Kopiuj treść</button>
             <button type="button" class="link" data-akcja="od-nowa">Przywróć treść</button>
           </div>
@@ -146,7 +151,8 @@ function render(arg) {
               <td class="liczba">${esc(iloscTxt(num(p.ilosc)))} × ${esc(kwotaTxt(num(p.cena)))}${String(p.cena_reczna) === 'true' && p.cena_cennik !== '' ? `<small>cennik ${esc(kwotaTxt(num(p.cena_cennik)))}</small>` : ''}</td>
               <td class="liczba"><b>${esc(kwotaTxt(num(p.wartosc)))}</b></td></tr>`).join('')}
               ${z.dostawa ? `<tr><td>Dostawa<small>${esc(z.dostawa)}</small></td><td></td><td class="liczba"><b>${esc(kwotaTxt(num(z.koszt_dostawy)))}</b></td></tr>` : ''}</tbody>
-            <tfoot><tr><td colspan="2">Razem</td><td class="liczba"><b>${esc(kwotaTxt(num(z.suma_brutto)))}</b></td></tr></tfoot></table>
+            <tfoot><tr><td colspan="2">Razem</td><td class="liczba"><b>${esc(kwotaTxt(num(z.suma_brutto)))}</b></td></tr>
+              ${z.waluta === 'EUR' ? `<tr><td colspan="2">Do zapłaty w euro<small>${z.kurs ? 'kurs NBP ' + esc(String(z.kurs).replace('.', ',')) : ''}</small></td><td class="liczba"><b>${esc(euroTxt(z.suma_eur, false))}</b></td></tr>` : ''}</tfoot></table>
         </article>`}
 
         <article class="panel">
@@ -157,7 +163,7 @@ function render(arg) {
             <div><dt>Płatność</dt><dd>${platnosciZamowienia(z).map(p => `${esc(p.forma)} ${esc(kwotaTxt(p.kwota))} – ${p.zaplacone ? 'zapłacone' : '<b>czeka</b>'}`).join('<br>')}</dd></div>
             ${z.dostawa ? `<div><dt>Dostawa</dt><dd>${esc(z.dostawa)}${z.adres_dostawy ? '<br>' + esc(z.adres_dostawy) : ''}${z.nr_przesylki ? `<br><small>nr przesyłki ${esc(z.nr_przesylki)}</small>` : ''}${z.wyslano ? `<br><small>wysłano ${esc(z.wyslano)}${z.realizuje ? ' (' + esc(z.realizuje) + ')' : ''}</small>` : ''}${z.zdjecie_wysylki ? ` · <a href="${esc(z.zdjecie_wysylki)}" target="_blank" rel="noopener">zdjęcie paczki</a>` : ''}</dd></div>` : ''}
           </dl>
-          ${z.dostawa && !anulowane && !z.nr_przesylki && (!z.przewoznik || z.przewoznik === 'InPost') ? htmlInpost(z, k) : ''}
+          ${z.dostawa && !anulowane && !z.nr_przesylki && czyInPost(z.przewoznik) ? htmlInpost(z, k) : ''}
           ${z.nr_przesylki && !anulowane ? htmlPrzesylki(z) : ''}
           <dl class="info">
             <div><dt>Wydarzenie</dt><dd>${esc([z.wydarzenie, z.magazyn, z.podmiot].filter(Boolean).join(' · ') || '—')}</dd></div>
@@ -182,7 +188,7 @@ function render(arg) {
   </section>`;
 
   // Po zatwierdzeniu wiadomość otwiera się sama; gdy przeglądarka to zablokuje, zostaje przycisk.
-  if (kanal && autoKanal !== z.id + kanal && tel && !anulowane && !nowe) {
+  if (kanal && autoKanal !== z.id + kanal && (kanal === 'email' ? mail : tel) && !anulowane && !nowe) {
     autoKanal = z.id + kanal;
     history.replaceState(null, '', '#zamowienie/' + encodeURIComponent(z.id));
     otworz(kanal, tel);
@@ -211,6 +217,7 @@ function htmlInpost(z, k) {
   const pola = [
     ['Odbiorca', k?.nazwa || ''],
     ['Telefon', tel.startsWith('+48') ? tel.slice(3) : tel],
+    ...(tel && !tel.startsWith('+48') ? [['Prefiks', tel.match(/^\+\d{1,3}/)?.[0] || '']] : []),
     ['E-mail', k?.email || ''],
     [/paczkomat/i.test(z.dostawa) ? 'Paczkomat' : 'Adres', z.adres_dostawy || ''],
   ].filter(([, v]) => v);
@@ -257,6 +264,12 @@ async function przekazWysylke(form, kanal) {
 }
 
 function otworz(kanal, tel) {
+  if (kanal === 'email') {
+    const z = zamowienie(biezace);
+    const mail = String(klient(z?.klient_id)?.email || '').trim();
+    if (mail) otworzLink(linkEmail(mail, tematWiadomosci(z), tresc));
+    return;
+  }
   otworzLink(kanal === 'wa' ? linkWhatsApp(tel, tresc) : linkSms(tel, tresc));
 }
 
@@ -275,7 +288,15 @@ async function klik(e) {
   const z = zamowienie(biezace);
   const tel = telefonE164(klient(z?.klient_id)?.telefon);
   const akcja = b.dataset.akcja;
-  if (akcja === 'sms' || akcja === 'wa') otworz(akcja, tel);
+  if (akcja === 'sms' || akcja === 'wa' || akcja === 'email') otworz(akcja, tel);
+  if (akcja === 'jezyk') {
+    if (jezykZamowienia(z) === b.dataset.v) return;
+    await sync.zapisz([{ karta: 'ZAMOWIENIA', wiersze: [{ ...z, jezyk: b.dataset.v }] }]);
+    await wczytaj();
+    biezace = null;   // treść od nowa w wybranym języku
+    render(z.id);
+    return;
+  }
   if (akcja === 'sprawdz-przesylke') {
     b.disabled = true;
     try {

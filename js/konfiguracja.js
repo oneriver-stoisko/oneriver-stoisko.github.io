@@ -1,7 +1,7 @@
 // Stałe aplikacji stoiska. Dane do płatności są domyślne dla wszystkich urządzeń;
 // na danym urządzeniu można je zmienić w Ustawieniach.
 
-export const WERSJA = '0.9.2';
+export const WERSJA = '0.10.0';
 
 // Stoisko ma własny adres (osobna „strona” dla telefonu – inaczej Chrome na Androidzie myli je z Finansami).
 export const ADRES_STOISKA = 'https://oneriver-stoisko.github.io/';
@@ -20,6 +20,10 @@ export const PLATNOSC_DOMYSLNA = {
   odbiorca: 'Darius',
   konto: '96 1140 2004 0000 3402 7777 2198',
   blik: '739 001 013',
+  // przelew w euro (zamówienia zagraniczne) – uzupełnij w Ustawieniach
+  odbiorcaEur: '',
+  kontoEur: '',
+  swift: '',
 };
 
 // [wartość w kolumnie forma_platnosci, etykieta na przycisku]
@@ -56,12 +60,15 @@ export const symbolMagazynu = m => {
 export const OSOBY_WYSYLKI = ['Olek', 'Grażynka'];
 
 // Przewoźnicy przy wysyłce: [wartość w ZAMOWIENIA.przewoznik, etykieta]. Monitoring statusów działa dla InPost.
-export const PRZEWOZNICY = [['InPost', 'InPost'], ['Poczta Polska', 'Poczta Polska'], ['Inny', 'Inny przewoźnik']];
+export const PRZEWOZNICY = [['InPost', 'InPost'], ['InPost International', 'InPost International'], ['Poczta Polska', 'Poczta Polska'], ['Inny', 'Inny przewoźnik']];
+export const MIEDZYNARODOWY = 'InPost International';
+/** InPost krajowy i InPost International: paczkomat/punkt, zrzuty z InPost Mobile, numer 24 cyfry, monitoring statusów. */
+export const czyInPost = p => !p || p === 'InPost' || p === MIEDZYNARODOWY;
 export const linkSledzeniaPrzewoznika = (przewoznik, nr) => {
   const n = encodeURIComponent(String(nr || '').replace(/\s+/g, ''));
   if (!n) return '';
   if (przewoznik === 'Poczta Polska') return `https://emonitoring.poczta-polska.pl/?numer=${n}`;
-  if (przewoznik && przewoznik !== 'InPost') return '';
+  if (!czyInPost(przewoznik)) return '';
   return `https://inpost.pl/sledzenie-przesylek?number=${n.replace(/\D/g, '')}`;
 };
 
