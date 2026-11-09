@@ -9,6 +9,13 @@ import { $, esc, toast, okno } from './util.js';
 import { dane, wczytaj, nastepnyNumer, kodUzywanyPrzez } from './dane.js';
 import { WERSJA, WYMAGANE_API, PODMIOTY, PLATNOSC_DOMYSLNA, MAGAZYNY, symbolMagazynu } from './konfiguracja.js';
 
+const KLUCZ_MOTYWU = 'or-stoisko-motyw';
+const motyw = () => { try { return localStorage.getItem(KLUCZ_MOTYWU) || 'auto'; } catch { return 'auto'; } };
+function ustawMotyw(m) {
+  try { if (m === 'auto') localStorage.removeItem(KLUCZ_MOTYWU); else localStorage.setItem(KLUCZ_MOTYWU, m); } catch { /* tylko na teraz */ }
+  if (m === 'auto') delete document.documentElement.dataset.motyw; else document.documentElement.dataset.motyw = m;
+}
+
 function render(komunikat = '', klasa = '') {
   const u = ustawienia();
   const s = sync.stanSynchronizacji();
@@ -60,6 +67,13 @@ function render(komunikat = '', klasa = '') {
         ${!pierwszy ? '<a class="przycisk drugorzedny" href="#nowe">Wróć</a>' : ''}</div>
       <p class="komunikat ${klasa}" aria-live="polite">${komunikat}</p>
     </form>
+
+    <div class="panel">
+      <h2>Wygląd</h2>
+      <div class="chipy">${[['auto', 'Jak w telefonie'], ['jasny', '☀︎ Jasny'], ['ciemny', '☾ Ciemny']].map(([k, e]) =>
+        `<button type="button" class="chip" data-akcja="motyw" data-v="${k}" aria-pressed="${motyw() === k}">${e}</button>`).join('')}</div>
+      <p class="podpowiedz">„Jak w telefonie” – aplikacja przełącza się razem z trybem ciemnym telefonu. Wybór dotyczy tylko tego urządzenia.</p>
+    </div>
 
     ${polaczone() ? `<div class="panel">
       <h2>Synchronizacja</h2>
@@ -134,6 +148,11 @@ async function klik(e) {
   const b = e.target.closest('[data-akcja]');
   if (!b) return;
   if (await klikPanelu(b, toast, trybProsty())) return;
+  if (b.dataset.akcja === 'motyw') {
+    ustawMotyw(b.dataset.v);
+    document.querySelectorAll('[data-akcja="motyw"]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    return;
+  }
   const akcja = b.dataset.akcja;
   if (akcja === 'pokaz-token') {
     const i = b.previousElementSibling;
