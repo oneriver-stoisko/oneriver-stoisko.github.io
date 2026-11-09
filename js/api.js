@@ -58,11 +58,14 @@ export async function wywolaj(akcja, dane = {}, limitMs = 45000) {
   if (json.uzytkownik) {
     try {
       const rola = String(json.uzytkownik.rola || '');
+      const nazwa = String(json.uzytkownik.nazwa || '');
+      const innaOsoba = localStorage.getItem('or-stoisko-uzytkownik') !== nazwa;
+      if (innaOsoba) localStorage.setItem('or-stoisko-uzytkownik', nazwa);
       if (localStorage.getItem('or-stoisko-rola') !== rola) {
         localStorage.setItem('or-stoisko-rola', rola);
-        localStorage.setItem('or-stoisko-uzytkownik', String(json.uzytkownik.nazwa || ''));
         window.dispatchEvent(new Event('or-zmiana-roli'));
       }
+      if (innaOsoba) window.dispatchEvent(new Event('or-zmiana-uzytkownika'));
     } catch { /* bez znaczenia */ }
   }
   if (!json.ok) throw new BladApi(json.blad || 'Nieznany błąd API.');

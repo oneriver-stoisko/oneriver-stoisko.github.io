@@ -52,7 +52,7 @@ export async function wlacz() {
   if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: naBajty(klucz) });
   await przekazDaneSW();
   await wywolaj('subskrybuj', { sub: sub.toJSON(), urzadzenie: ustawienia().kto || '' });
-  try { localStorage.setItem('or-stoisko-push', new Date().toISOString().slice(0, 10)); } catch { /* bez znaczenia */ }
+  try { localStorage.setItem('or-stoisko-push', new Date().toISOString().slice(0, 10) + '|' + nazwaUzytkownika()); } catch { /* bez znaczenia */ }
   return true;
 }
 
@@ -71,7 +71,8 @@ export const testuj = () => wywolaj('testPowiadomienia', {}, 60000);
 export async function odswiezCichutko() {
   try {
     if (!wspierane() || Notification.permission !== 'granted') return;
-    const dzis = new Date().toISOString().slice(0, 10);
+    // urządzenie zapisane w arkuszu dziś i na tę samą osobę (po zmianie tokenu – zapis od nowa na nową osobę)
+    const dzis = new Date().toISOString().slice(0, 10) + '|' + nazwaUzytkownika();
     if (localStorage.getItem('or-stoisko-push') === dzis) { await przekazDaneSW(); return; }
     if (await stan() !== 'wlaczone' && !localStorage.getItem('or-stoisko-push')) return;
     await wlacz();
@@ -115,7 +116,11 @@ export async function klikPanelu(b, toast, prosty = false) {
   try {
     if (a === 'push-wlacz') { await wlacz(); toast('Powiadomienia włączone. Za chwilę przyjdzie próbne.', 'ok', 6000); await testuj().catch(() => {}); }
     else if (a === 'push-wylacz') { await wylacz(); toast('Powiadomienia wyłączone na tym urządzeniu.', 'ok'); }
-    else { const w = await testuj(); toast(w.wyslano ? 'Wysłano – powiadomienie powinno przyjść za kilka sekund.' : 'Nie udało się wysłać – sprawdź, czy skrypt arkusza ma wersję 12.', w.wyslano ? 'ok' : 'blad', 7000); }
+    else {
+      let w = await testuj();
+      if (!w.wyslano) { await wlacz(); w = await testuj(); }   // np. telefon był zapisany na innym tokenie
+      toast(w.wyslano ? 'Wysłano – powiadomienie powinno przyjść za kilka sekund.' : 'Nie udało się wysłać. Dotknij „Wyłącz”, potem „Włącz powiadomienia” i spróbuj jeszcze raz.', w.wyslano ? 'ok' : 'blad', 9000);
+    }
   } catch (e) {
     toast(e.message, 'blad', 9000);
   } finally {

@@ -38,6 +38,8 @@ const TRASY_PROSTE = ['prosty', 'wysylki', 'potrzebuje', 'instrukcje', 'ustawien
 
 let aktywny = null;
 window.addEventListener('or-zmiana-roli', () => { location.hash = trybProsty() ? '#prosty' : '#nowe'; render(); });
+// po zmianie tokenu telefon zapisuje się do powiadomień na nową osobę
+window.addEventListener('or-zmiana-uzytkownika', () => { try { localStorage.removeItem('or-stoisko-push'); } catch { /* bez znaczenia */ } odswiezCichutko(); });
 
 function trasa() {
   const prosty = trybProsty();
