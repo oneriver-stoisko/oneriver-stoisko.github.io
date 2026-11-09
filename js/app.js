@@ -1,7 +1,7 @@
 // Start aplikacji stoiska: nawigacja, pasek synchronizacji, service worker.
 
 import * as sync from './sync.js';
-import { gotowe } from './api.js';
+import { gotowe, trybProsty } from './api.js';
 import { $, $$, toast, godzina, bezSkoku } from './util.js';
 import { wczytaj } from './dane.js';
 import { ekran as ekranNowe } from './nowe.js';
@@ -11,6 +11,8 @@ import { ekran as ekranUstawien } from './ustawienia.js';
 import { ekran as ekranKlientow } from './klienci.js';
 import { ekran as ekranSklepu } from './sklep.js';
 import { ekran as ekranPoziomow } from './poziomy.js';
+import { ekran as ekranProsty } from './prosty.js';
+import { ekran as ekranWysylek, ileDoWyslania } from './wysylki.js';
 import { ileDoPotwierdzenia } from './lista.js';
 import { ADRES_STOISKA } from './konfiguracja.js';
 
@@ -24,15 +26,21 @@ const TRASY = {
   sklep: [ekranSklepu, 'sklep', 'Sklep'],
   poziomy: [ekranPoziomow, 'sklep', 'Poziomy cen'],
   ustawienia: [ekranUstawien, 'ustawienia', 'Ustawienia'],
+  prosty: [ekranProsty, 'prosty', 'Sprzedaż'],
+  wysylki: [ekranWysylek, 'wysylki', 'Do wysłania'],
 };
+const TRASY_PROSTE = ['prosty', 'wysylki', 'ustawienia'];
 
 let aktywny = null;
+window.addEventListener('or-zmiana-roli', () => { location.hash = trybProsty() ? '#prosty' : '#nowe'; render(); });
 
 function trasa() {
-  const h = location.hash.slice(1) || (gotowe() ? 'nowe' : 'ustawienia');
+  const prosty = trybProsty();
+  const h = location.hash.slice(1) || (gotowe() ? (prosty ? 'prosty' : 'nowe') : 'ustawienia');
   const i = h.indexOf('/');
-  const widok = i < 0 ? h : h.slice(0, i);
+  let widok = i < 0 ? h : h.slice(0, i);
   const arg = i < 0 ? null : decodeURIComponent(h.slice(i + 1));
+  if (prosty && !TRASY_PROSTE.includes(widok)) return { widok: 'prosty', arg: null };
   return { widok: TRASY[widok] ? widok : 'nowe', arg };
 }
 
@@ -45,6 +53,10 @@ function render() {
     if (a.dataset.widok === zakladka) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   });
+  document.body.classList.toggle('prosty', trybProsty());
+  const nw = ileDoWyslania();
+  const lw = $('.nawigacja [data-widok="wysylki"] .licznik');
+  if (lw) { lw.textContent = nw || ''; lw.hidden = !nw; }
   const n = ileDoPotwierdzenia();
   const licznik = $('.nawigacja [data-widok="lista"] .licznik');
   licznik.textContent = n || '';

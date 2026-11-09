@@ -55,8 +55,26 @@ export async function wywolaj(akcja, dane = {}, limitMs = 45000) {
   let json;
   try { json = await odp.json(); } catch { throw new BladApi('Odpowiedź nie pochodzi z API aplikacji. Sprawdź adres w Ustawieniach.'); }
   if (json.wersja) { try { localStorage.setItem('or-stoisko-wersja-api', String(json.wersja)); } catch { /* bez znaczenia */ } }
+  if (json.uzytkownik) {
+    try {
+      const rola = String(json.uzytkownik.rola || '');
+      if (localStorage.getItem('or-stoisko-rola') !== rola) {
+        localStorage.setItem('or-stoisko-rola', rola);
+        localStorage.setItem('or-stoisko-uzytkownik', String(json.uzytkownik.nazwa || ''));
+        window.dispatchEvent(new Event('or-zmiana-roli'));
+      }
+    } catch { /* bez znaczenia */ }
+  }
   if (!json.ok) throw new BladApi(json.blad || 'Nieznany błąd API.');
   return json.dane;
+}
+
+/** Tryb prosty (token z rolą „stoisko-prosty”, np. Grażynka): tylko sprzedaż krok po kroku i wysyłki do zrobienia. */
+export function trybProsty() {
+  try { return localStorage.getItem('or-stoisko-rola') === 'stoisko-prosty'; } catch { return false; }
+}
+export function nazwaUzytkownika() {
+  try { return localStorage.getItem('or-stoisko-uzytkownik') || ''; } catch { return ''; }
 }
 
 export function wersjaApi() {

@@ -609,25 +609,8 @@ function sprawdz(kanal) {
   return '';
 }
 
-/** Błąd widoczny przy przyciskach (zostaje, dopóki go nie poprawisz) + komunikat i przejście do pola. */
-function pokazBlad(blad) {
-  const el = $('#blad-zapisu');
-  if (el) { el.textContent = blad; el.hidden = !blad; }
-  if (!blad) return;
-  toast(blad, 'blad', 7000);
-  const pole = /telefon/i.test(blad) ? 'telefon' : /e-mail/i.test(blad) ? 'email' : /paczkomat|adres/i.test(blad) ? 'paczkomat' : '';
-  const p = pole && $(`[data-pole="${pole}"]`);
-  if (p) { p.scrollIntoView({ block: 'center' }); p.focus(); p.classList.add('pole-blad'); setTimeout(() => p.classList.remove('pole-blad'), 4000); }
-}
-
-async function zatwierdz(kanal, przycisk) {
-  if (zapisuje) return;
-  const blad = sprawdz(kanal);
-  pokazBlad(blad);
-  if (blad) return;
-  zapisuje = true;
-  przycisk.disabled = true;
-  try {
+/** Zapisuje bieżące zamówienie (stan „s”) do kolejki synchronizacji. Zwraca numer, tryb edycji i zapisane wiersze. */
+async function zapiszStan() {
     const u = ustawienia();
     const edycja = s.tryb === 'edycja';
     const stare = edycja ? zamowienie(s.edytowane) : null;
@@ -713,6 +696,47 @@ async function zatwierdz(kanal, przycisk) {
     await sync.zapisz(Object.entries(paczki).map(([karta, wiersze]) => ({ karta, wiersze })));
     if (!edycja) zapamietajNumer(numer);
     await wczytaj();
+    return { numer, edycja, paczki };
+}
+
+/**
+ * Zapis z prostego ekranu (tryb Grażynki): sprzedaż na miejscu, jedna forma płatności.
+ * koszyk – pozycje w formacie ekranu „Nowe” ({ symbol, nazwa, grupa, jm, cena_cennik, iloscTxt, cenaTxt }).
+ */
+export async function zapiszProste({ koszyk, forma, zaplacone, telefon, nazwa, magazyn }) {
+  const poprzedni = s;
+  s = { ...pusty(), typ: 'miejsce', magazyn: magazyn || '', telefon: telefon || '', nazwa: nazwa || '',
+    koszyk: koszyk.map(p => ({ k: uuid(), posId: '', ...p })),
+    platnosci: [{ k: uuid(), forma, kwotaTxt: '', zaplacone: Boolean(zaplacone) }] };
+  try {
+    const blad = sprawdz('');
+    if (blad) throw new Error(blad);
+    return (await zapiszStan()).numer;
+  } finally {
+    s = poprzedni;
+  }
+}
+
+/** Błąd widoczny przy przyciskach (zostaje, dopóki go nie poprawisz) + komunikat i przejście do pola. */
+function pokazBlad(blad) {
+  const el = $('#blad-zapisu');
+  if (el) { el.textContent = blad; el.hidden = !blad; }
+  if (!blad) return;
+  toast(blad, 'blad', 7000);
+  const pole = /telefon/i.test(blad) ? 'telefon' : /e-mail/i.test(blad) ? 'email' : /paczkomat|adres/i.test(blad) ? 'paczkomat' : '';
+  const p = pole && $(`[data-pole="${pole}"]`);
+  if (p) { p.scrollIntoView({ block: 'center' }); p.focus(); p.classList.add('pole-blad'); setTimeout(() => p.classList.remove('pole-blad'), 4000); }
+}
+
+async function zatwierdz(kanal, przycisk) {
+  if (zapisuje) return;
+  const blad = sprawdz(kanal);
+  pokazBlad(blad);
+  if (blad) return;
+  zapisuje = true;
+  przycisk.disabled = true;
+  try {
+    const { numer, edycja, paczki } = await zapiszStan();
     if (edycja) {
       s = wczytajSzkic();
     } else {

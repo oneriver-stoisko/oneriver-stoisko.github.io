@@ -155,7 +155,7 @@ function render(arg) {
             <div><dt>Data</dt><dd>${esc(dataKrotko(z.data))}</dd></div>
             <div><dt>Klient</dt><dd>${k ? `<a href="#klient/${encodeURIComponent(k.id)}">${esc([k.nazwa, telefonCzytelny(k.telefon), k.email].filter(Boolean).join(' · '))}</a>` : '—'}</dd></div>
             <div><dt>Płatność</dt><dd>${platnosciZamowienia(z).map(p => `${esc(p.forma)} ${esc(kwotaTxt(p.kwota))} – ${p.zaplacone ? 'zapłacone' : '<b>czeka</b>'}`).join('<br>')}</dd></div>
-            ${z.dostawa ? `<div><dt>Dostawa</dt><dd>${esc(z.dostawa)}${z.adres_dostawy ? '<br>' + esc(z.adres_dostawy) : ''}${z.nr_przesylki ? `<br><small>nr przesyłki ${esc(z.nr_przesylki)}</small>` : ''}</dd></div>` : ''}
+            ${z.dostawa ? `<div><dt>Dostawa</dt><dd>${esc(z.dostawa)}${z.adres_dostawy ? '<br>' + esc(z.adres_dostawy) : ''}${z.nr_przesylki ? `<br><small>nr przesyłki ${esc(z.nr_przesylki)}</small>` : ''}${z.wyslano ? `<br><small>wysłano ${esc(z.wyslano)}${z.realizuje ? ' (' + esc(z.realizuje) + ')' : ''}</small>` : ''}${z.zdjecie_wysylki ? ` · <a href="${esc(z.zdjecie_wysylki)}" target="_blank" rel="noopener">zdjęcie paczki</a>` : ''}</dd></div>` : ''}
           </dl>
           ${z.dostawa && !anulowane && !z.nr_przesylki && (!z.przewoznik || z.przewoznik === 'InPost') ? htmlInpost(z, k) : ''}
           ${z.nr_przesylki && !anulowane ? htmlPrzesylki(z) : ''}

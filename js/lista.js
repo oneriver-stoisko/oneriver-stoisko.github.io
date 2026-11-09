@@ -52,7 +52,7 @@ function htmlListy() {
       const sgt = z.nr_dok_sgt ? ` · ${esc(z.nr_dok_sgt)}` : (z.epp_eksport ? ' · EPP ✓' : '');
       return `<li class="${w ? 'wybor' : ''}">${otw}
         <span class="lz-numer">${esc(z.id)}${czekajace.has('ZAMOWIENIA|' + z.id) ? ' <i class="do-wyslania" title="Czeka na wysłanie do arkusza">●</i>' : ''}</span>
-        <span class="lz-klient">${esc(k?.nazwa || (k ? telefonCzytelny(k.telefon) : 'bez klienta'))}<small>${esc(dataKrotko(z.data))} · ${esc(z.forma_platnosci || '')}${z.wydarzenie ? ' · ' + esc(z.wydarzenie) : ''}${z.dostawa || z.typ === 'wysylka' ? ' · ' + (z.status_przesylki_opis ? `<span class="przesylka-mini">📦 ${esc(z.status_przesylki_opis)}</span>` : z.nr_przesylki ? 'nadana – czeka na status' : z.nadano ? `wysyła ${esc(z.realizuje || '')}` : 'do wysłania') : ''}${sgt}</small></span>
+        <span class="lz-klient">${esc(k?.nazwa || (k ? telefonCzytelny(k.telefon) : 'bez klienta'))}<small>${esc(dataKrotko(z.data))} · ${esc(z.forma_platnosci || '')}${z.wydarzenie ? ' · ' + esc(z.wydarzenie) : ''}${z.dostawa || z.typ === 'wysylka' ? ' · ' + (z.status_przesylki_opis ? `<span class="przesylka-mini">📦 ${esc(z.status_przesylki_opis)}</span>` : z.wyslano ? `wysłano (${esc(z.realizuje || '')})` : z.nr_przesylki ? 'nadana – czeka na status' : z.nadano ? `wysyła ${esc(z.realizuje || '')}` : 'do wysłania') : ''}${sgt}</small></span>
         <span class="lz-kwota"><b>${esc(kwotaTxt(num(z.suma_brutto)))}</b><span class="status ${klasaStatusu(z.status)}">${esc(etykietaStatusu(z.status))}</span></span>
       ${w ? '</label>' : '</a>'}</li>`;
     }).join('')}</ul>`;
