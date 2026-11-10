@@ -207,7 +207,11 @@ function htmlWysylki() {
     return `<article class="panel wysylka-panel">
     <header><h2>Wysyłka – ${esc(s.przewoznik)}</h2></header>
     ${chipyPrzewoznika}
-    <p class="podpowiedz">${s.przewoznik === 'Poczta Polska' ? 'Nadaj przesyłkę w e-nadawcy (Poczta Polska), potem wpisz tutaj adres i numer nadania.' : 'Wpisz adres i numer przesyłki od przewoźnika.'}
+    ${s.przewoznik === 'Poczta Polska' ? `<label class="przycisk szeroki zrzuty${ocrTrwa ? ' trwa' : ''}">
+      <input type="file" accept="image/*" multiple data-pole="zrzuty" hidden>
+      <span id="ocr-opis">${ocrTrwa ? 'Odczytuję…' : 'Wczytaj zrzut z e-nadawcy (Poczta Polska)'}</span>
+    </label>` : ''}
+    <p class="podpowiedz">${s.przewoznik === 'Poczta Polska' ? 'Nadaj przesyłkę w e-nadawcy, zrób zrzut ekranu formularza przesyłki (adresat + numer nadania) i wczytaj go – odbiorca, adres, telefon, e-mail i numer nadania wpiszą się same. Sprawdź je przed zapisem.' : 'Wpisz adres i numer przesyłki od przewoźnika.'}
       <button type="button" class="link" data-akcja="wyczysc-wysylke">Wyczyść dane wysyłki i klienta</button></p>
     <label class="pole"><span class="etykieta">Adres dostawy (z krajem)</span>
       <textarea data-pole="adres" rows="3" autocomplete="off" placeholder="ulica i numer, kod, miejscowość, kraj">${esc(s.adres)}</textarea></label>
@@ -433,6 +437,11 @@ async function wczytajZrzuty(pliki) {
   try {
     const { dane: d } = await rozpoznaj([...pliki], (p, t) => opis(p ? `${t} ${Math.round(p * 100)}%` : t));
     const znalezione = [];
+    if (d.poczta) {
+      s.przewoznik = 'Poczta Polska';
+      s.paczkomat = ''; s.kodNadania = '';
+      znalezione.push('Poczta Polska' + (d.krajNazwa ? ` (${d.krajNazwa})` : ''));
+    }
     if (d.nazwa) { s.nazwa = d.nazwa; znalezione.push('odbiorca'); }
     if (d.telefon) { s.telefon = d.telefon; znalezione.push('telefon'); }
     if (d.email) { s.email = d.email; znalezione.push('e-mail'); }
@@ -440,7 +449,7 @@ async function wczytajZrzuty(pliki) {
     if (d.adres) s.adres = d.adres;
     if (d.nrPrzesylki) { s.nrPrzesylki = d.nrPrzesylki; znalezione.push('nr przesyłki'); }
     if (d.kodNadania) { s.kodNadania = d.kodNadania; znalezione.push('kod nadania'); }
-    if (d.miedzynarodowa) {
+    if (d.miedzynarodowa && !d.poczta) {
       s.przewoznik = MIEDZYNARODOWY;
       if (s.waluta !== 'EUR') { s.waluta = 'EUR'; pobierzKurs(); }
       znalezione.push(`InPost International${d.kraj ? ' (' + d.kraj + ')' : ''} – płatność w EUR, wiadomość po angielsku`);
