@@ -4,7 +4,7 @@
 import { dane, klient, pozycjeZamowienia, produktSymbolu, telefonE164 } from './dane.js';
 import { platnosciZamowienia } from './wiadomosc.js';
 import { ustawienia } from './api.js';
-import { czyTransport, SYMBOL_TRANSPORTU, STATUSY, symbolMagazynu } from './konfiguracja.js';
+import { czyTransport, SYMBOL_TRANSPORTU, STATUSY, magazynZam } from './konfiguracja.js';
 import { trescEpp, naCp1250, FIRMA_INCO } from './epp.js';
 import { num, dataLok } from './util.js';
 import * as sync from './sync.js';
@@ -61,7 +61,7 @@ export function dokumentZamowienia(z) {
     numer: Number(String(z.id).split('-').pop()) || 1, pelnyNumer: String(z.id), numerZamowienia: String(z.id), data,
     miejsce: 'Warszawa', kategoria: 'Detal', podtytul: 'Sprzedaz detaliczna', wystawca: ustawienia().kto || 'Stoisko',
     terminDni: 7, uwagi: uwagi.slice(0, 255), kontrahent, platnosci: pl, pozycje,
-  }, podmiot: String(z.podmiot || 'INCO').toUpperCase() === 'OFI' ? 'OFI' : 'INCO', magazyn: symbolMagazynu(z.magazyn) };
+  }, podmiot: String(z.podmiot || 'INCO').toUpperCase() === 'OFI' ? 'OFI' : 'INCO', magazyn: magazynZam(z) };
 }
 
 function pobierzPlik(nazwa, bajty) {

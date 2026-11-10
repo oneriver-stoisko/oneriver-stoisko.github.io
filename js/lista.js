@@ -3,14 +3,15 @@
 import { $, $$, esc, kwotaTxt, num, dataLok, dataKrotko, normalizuj, odmiana } from './util.js';
 import { dane, klient, telefonCzytelny } from './dane.js';
 import { ustawienia } from './api.js';
-import { STATUSY } from './konfiguracja.js';
+import { STATUSY, MAGAZYNY, magazynZam, ZNACZKI_MAGAZYNOW } from './konfiguracja.js';
 import { etykietaStatusu } from './zamowienie.js';
 import * as sync from './sync.js';
 import { eksportujEpp } from './eksport-epp.js';
 import { toast } from './util.js';
 
 // wybor: null albo Set numerów zamówień zaznaczonych do eksportu EPP
-const stan = { filtr: null, szukaj: '', wybor: null };
+const stan = { filtr: null, szukaj: '', wybor: null, magazyn: '' };
+try { stan.magazyn = localStorage.getItem('or-stoisko-filtr-mag') || ''; } catch { /* bez znaczenia */ }
 const FILTRY = [['nowe', 'Do potwierdzenia'], ['dzis', 'Dziś'], ['urzadzenie', 'To urządzenie'], ['nieoplacone', 'Czekają na płatność'], ['wdrodze', 'Przesyłki w drodze'], ['subiekt', 'Do Subiekta'], ['wszystkie', 'Wszystkie']];
 const wDrodze = z => z.status !== STATUSY.anulowane && (z.typ === 'wysylka' || z.dostawa) && !z.przesylka_koniec;
 const doSubiekta = z => z.status !== STATUSY.anulowane && !z.epp_eksport && !z.nr_dok_sgt;
@@ -27,9 +28,10 @@ function lista() {
     if (stan.filtr === 'nowe' && z.status !== STATUSY.nowe) return false;
     if (stan.filtr === 'subiekt' && !doSubiekta(z)) return false;
     if (stan.filtr === 'wdrodze' && !wDrodze(z)) return false;
+    if (stan.magazyn && magazynZam(z) !== stan.magazyn) return false;
     if (!slowa.length) return true;
     const k = klient(z.klient_id);
-    const tekst = normalizuj([z.id, z.nr_dok_sgt, z.wydarzenie, k?.nazwa, k?.telefon, k?.email].join(' '));
+    const tekst = normalizuj([z.id, magazynZam(z), z.nr_dok_sgt, z.wydarzenie, k?.nazwa, k?.telefon, k?.email].join(' '));
     return slowa.every(s => tekst.includes(s));
   });
 }
@@ -51,7 +53,7 @@ function htmlListy() {
       const otw = w ? `<label class="lz-wybierz"><input type="checkbox" data-wybierz="${esc(z.id)}"${w.has(String(z.id)) ? ' checked' : ''}${z.status === STATUSY.anulowane ? ' disabled' : ''}>` : `<a href="#zamowienie/${encodeURIComponent(z.id)}">`;
       const sgt = z.nr_dok_sgt ? ` · ${esc(z.nr_dok_sgt)}` : (z.epp_eksport ? ' · EPP ✓' : '');
       return `<li class="${w ? 'wybor' : ''}">${otw}
-        <span class="lz-numer">${esc(z.id)}${czekajace.has('ZAMOWIENIA|' + z.id) ? ' <i class="do-wyslania" title="Czeka na wysłanie do arkusza">●</i>' : ''}</span>
+        <span class="lz-numer">${esc(z.id)} <span class="mag-znacznik mag-maly mag-${magazynZam(z)}" title="${esc(ZNACZKI_MAGAZYNOW[magazynZam(z)])}">${magazynZam(z)}</span>${czekajace.has('ZAMOWIENIA|' + z.id) ? ' <i class="do-wyslania" title="Czeka na wysłanie do arkusza">●</i>' : ''}</span>
         <span class="lz-klient">${esc(k?.nazwa || (k ? telefonCzytelny(k.telefon) : 'bez klienta'))}<small>${esc(dataKrotko(z.data))} · ${esc(z.forma_platnosci || '')}${z.wydarzenie ? ' · ' + esc(z.wydarzenie) : ''}${z.dostawa || z.typ === 'wysylka' ? ' · ' + (z.status_przesylki_opis ? `<span class="przesylka-mini">📦 ${esc(z.status_przesylki_opis)}</span>` : z.wyslano ? `wysłano (${esc(z.realizuje || '')})` : z.nr_przesylki ? 'nadana – czeka na status' : z.nadano ? `wysyła ${esc(z.realizuje || '')}` : 'do wysłania') : ''}${sgt}</small></span>
         <span class="lz-kwota"><b>${esc(kwotaTxt(num(z.suma_brutto)))}</b><span class="status ${klasaStatusu(z.status)}">${esc(etykietaStatusu(z.status))}</span></span>
       ${w ? '</label>' : '</a>'}</li>`;
@@ -61,8 +63,12 @@ function htmlListy() {
 function htmlPaskaEpp() {
   if (!stan.wybor) return '';
   const n = stan.wybor.size;
+  const ile = {};
+  dane.zamowienia.filter(z => stan.wybor.has(String(z.id))).forEach(z => { const m = magazynZam(z); ile[m] = (ile[m] || 0) + 1; });
+  const podzial = Object.entries(ile).sort().map(([m, k]) => `<b>${m}</b>: ${k}`).join(' · ');
   return `<div class="panel pasek-epp">
       <p>Zaznacz zamówienia do pliku EPP. Plik wczytasz w Subiekcie: <b>Operacje → Odbierz z… → Plik EDI++</b>.</p>
+      ${n ? `<p class="podpowiedz">Zaznaczone wg magazynu: ${podzial}. Każdy magazyn to osobny plik (magazyn jest w nazwie pliku).</p>` : ''}
       <div class="przyciski">
         <button type="button" class="drugorzedny" data-akcja="epp-wszystkie">Zaznacz widoczne</button>
         <button type="button" class="drugorzedny" data-akcja="epp-zadne">Odznacz</button>
@@ -84,6 +90,7 @@ function render() {
       <a class="przycisk" href="#nowe">+ Nowe</a></span></header>
     <div id="pasek-epp">${htmlPaskaEpp()}</div>
     <div class="chipy male filtry">${FILTRY.filter(([w]) => w !== 'nowe' || nowe).map(([w, e]) => `<button type="button" class="chip" data-filtr="${w}" aria-pressed="${stan.filtr === w}">${esc(e)}${w === 'nowe' && nowe ? ` (${nowe})` : ''}</button>`).join('')}</div>
+    <div class="chipy male filtry-mag"><span class="etykieta-mag">Magazyn:</span>${[['', 'Wszystkie'], ...MAGAZYNY.map(([m]) => [m, ZNACZKI_MAGAZYNOW[m]])].map(([w, e]) => `<button type="button" class="chip" data-filtr-mag="${w}" aria-pressed="${stan.magazyn === w}">${esc(e)}</button>`).join('')}</div>
     <label class="pole szukaj"><span class="sr">Szukaj</span>
       <input type="search" id="szukaj-zam" value="${esc(stan.szukaj)}" placeholder="Numer, klient, telefon, paragon" autocomplete="off"></label>
     <div id="lista-zam">${htmlListy()}</div>
@@ -117,6 +124,13 @@ async function klik(e) {
       render(); return;
     }
     return;
+  }
+  const bm = e.target.closest('[data-filtr-mag]');
+  if (bm) {
+    stan.magazyn = bm.dataset.filtrMag;
+    try { localStorage.setItem('or-stoisko-filtr-mag', stan.magazyn); } catch { /* bez znaczenia */ }
+    $$('.filtry-mag .chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.filtrMag === stan.magazyn)));
+    odswiezListe(); return;
   }
   const b = e.target.closest('[data-filtr]');
   if (!b) return;

@@ -4,7 +4,7 @@
 
 import { $, $$, esc, kwotaTxt, iloscTxt, num, zaokr, liczba, liczbaNaTekst, dataKrotko, toast, okno } from './util.js';
 import { wczytaj, zamowienie, pozycjeZamowienia, klient, telefonE164, telefonCzytelny, opisCenKlienta } from './dane.js';
-import { STATUSY, PLATNE_POZNIEJ, FORMY, ETYKIETY_STATUSOW, OSOBY_WYSYLKI, czyTransport, czyInPost } from './konfiguracja.js';
+import { STATUSY, PLATNE_POZNIEJ, FORMY, ETYKIETY_STATUSOW, OSOBY_WYSYLKI, czyTransport, czyInPost, magazynZam, ZNACZKI_MAGAZYNOW } from './konfiguracja.js';
 import { eksportujEpp } from './eksport-epp.js';
 import { ustawienia, wywolaj } from './api.js';
 import { trescWiadomosci, trescDlaWysylki, linkSms, linkWhatsApp, linkWhatsAppDoGrupy, otworzLink, platnosciZamowienia, linkSledzenia,
@@ -120,6 +120,7 @@ function render(arg) {
   <section class="ekran zamowienie">
     <header class="naglowek-zam">
       <div><span class="etykieta">Zamówienie${z.zrodlo === 'formularz' ? ' z formularza' : ''}</span><h1 class="numer">${esc(z.id)}</h1></div>
+      <span class="mag-znacznik mag-${magazynZam(z)}" title="Magazyn – do tego magazynu trafi paragon w Subiekcie">${esc(ZNACZKI_MAGAZYNOW[magazynZam(z)])}</span>
       <span class="status ${klasaStatusu(z.status)}">${esc(etykietaStatusu(z.status))}</span>
     </header>
     ${czeka ? '<p class="pasek-info">Zapisane na tym urządzeniu – wyśle się do arkusza, gdy będzie internet.</p>' : ''}
@@ -247,7 +248,7 @@ async function przekazWysylke(form, kanal) {
   if (!kto) { toast('Wybierz, kto wysyła.', 'blad'); return; }
   if (!kod && !(await okno('Bez kodu nadania?', '<p>Kod z aplikacji InPost nie jest wpisany. Wysłać wiadomość bez niego?</p>',
     [{ etykieta: 'Wpiszę kod', wartosc: false, klasa: 'drugorzedny', autofocus: true }, { etykieta: 'Wyślij bez kodu', wartosc: true }]))) return;
-  const nowy = { ...z, kod_nadania: kod, realizuje: kto, nadano: z.nadano || dataLok(), ...(z.typ === 'wysylka' && kto ? { magazyn: kto === 'Grażynka' ? 'GR' : 'INC' } : {}) };
+  const nowy = { ...z, kod_nadania: kod, realizuje: kto, nadano: z.nadano || dataLok(), ...((z.typ === 'wysylka' || z.zrodlo === 'formularz' || z.dostawa) && kto ? { magazyn: kto === 'Grażynka' ? 'GR' : 'INC' } : {}) };
   const tekst = trescDlaWysylki(nowy, pozycjeZamowienia(z.id), klient(z.klient_id));
   // najpierw udostępnienie (przeglądarka pozwala na nie tylko zaraz po dotknięciu), potem zapis
   if (kanal === 'udostepnij' && navigator.share) {

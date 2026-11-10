@@ -1,7 +1,7 @@
 // Stałe aplikacji stoiska. Dane do płatności są domyślne dla wszystkich urządzeń;
 // na danym urządzeniu można je zmienić w Ustawieniach.
 
-export const WERSJA = '0.10.1';
+export const WERSJA = '0.10.2';
 
 // Stoisko ma własny adres (osobna „strona” dla telefonu – inaczej Chrome na Androidzie myli je z Finansami).
 export const ADRES_STOISKA = 'https://oneriver-stoisko.github.io/';
@@ -55,6 +55,10 @@ export const symbolMagazynu = m => {
   if (/^\s*one\b/i.test(t)) return 'ONE';
   return 'INC';
 };
+/** Magazyn zamówienia z arkusza: wpisany → symbol; pusty → wg osoby wysyłającej (Grażynka = GR), inaczej INC. */
+export const magazynZam = z => (String(z?.magazyn || '').trim() ? symbolMagazynu(z.magazyn) : z?.realizuje === 'Grażynka' ? 'GR' : 'INC');
+/** Znaczek magazynu (lista, nagłówek zamówienia). */
+export const ZNACZKI_MAGAZYNOW = { INC: 'INC Elsterska', GR: 'GR Grażynka', ONE: 'ONE (OFI)' };
 
 // Kto realizuje wysyłkę zamówień (wybór przy zamówieniu; trafia do kolumny ZAMOWIENIA.realizuje).
 export const OSOBY_WYSYLKI = ['Olek', 'Grażynka'];

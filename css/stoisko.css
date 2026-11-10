@@ -229,6 +229,15 @@ button[type=submit], .przycisk, .przyciski button, .zatwierdz button, .szeroki {
 .lz-klient small { display: block; color: var(--szary); font-size: 13.5px; }
 .lz-kwota { text-align: right; display: grid; gap: 4px; justify-items: end; }
 .do-wyslania { color: var(--tekst-uwaga); font-style: normal; }
+/* znacznik magazynu */
+.mag-znacznik { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 13.5px; font-weight: 700;
+  border: 1.5px solid var(--linia); background: var(--papier-2); color: var(--atrament); white-space: nowrap; vertical-align: middle; line-height: 1.4; }
+.mag-znacznik.mag-maly { padding: 1px 7px; font-size: 12.5px; margin-left: 4px; }
+.mag-znacznik.mag-GR { background: var(--terakota); color: var(--papier); border-color: var(--terakota); }
+.mag-znacznik.mag-ONE { background: var(--tlo-info); color: var(--na-info); border-color: var(--tlo-info); }
+.naglowek-zam .mag-znacznik { margin-left: auto; align-self: center; }
+.filtry-mag { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.filtry-mag .etykieta-mag { color: var(--szary); font-size: 14.5px; }
 @media (max-width: 520px) {
   .lista-zam a { grid-template-columns: 1fr auto; }
   .lz-numer { grid-column: 1 / -1; }
