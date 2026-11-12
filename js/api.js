@@ -9,7 +9,7 @@ export function ustawienia() {
   let u = {};
   try { u = JSON.parse(localStorage.getItem(KLUCZ)) || {}; } catch { /* puste */ }
   return {
-    url: '', token: '', kto: '', kod: '', podmiot: 'INCO', magazyn: '', wydarzenie: '',
+    url: '', token: '', kto: '', kod: '', podmiot: 'INCO', magazyn: '', wydarzenie: '', wydarzenie_id: '',
     ...u,
     platnosc: { ...PLATNOSC_DOMYSLNA, ...(u.platnosc || {}) },
   };

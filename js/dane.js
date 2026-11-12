@@ -11,10 +11,13 @@ export const dane = {
   zamowienia: [], pozycje: [], klienci: [], cennik: [], produkty: [], grupy: [], magazyny: [],
   wysylki: [], grupyCenowe: [], cenySpecjalne: [], zKatalogu: false,
   poziomy: [], cenyPoziomow: new Map(), ustawienia: new Map(), stanyZDnia: '',
-  instrukcje: [], zapotrzebowania: [],
+  instrukcje: [], zapotrzebowania: [], wydarzenia: [],
 };
 
 export const PREFIKS_INSTRUKCJI = 'instr:';
+// Wydarzenia tworzone w aplikacji Finanse (Budżety → Wydarzenie): wiersze USTAWIENIA z id „wydarzenie:<id>”
+// (opis = nazwa, tresc = JSON {od, do, miejsce, podmiot, status}).
+export const PREFIKS_WYDARZENIA = 'wydarzenie:';
 const numerZam = id => Number(String(id).split('-').pop()) || 0;
 const prawda = v => v === true || /^(true|tak|1)$/i.test(String(v));
 export const aktywny = w => w.aktywna === '' || w.aktywna === undefined || prawda(w.aktywna);
@@ -37,6 +40,11 @@ export async function wczytaj() {
   // Instrukcje dla Grażynki: wiersze USTAWIENIA z id „instr:…” (opis = tytuł, tresc = treść; usunięte – pusty opis i treść)
   dane.instrukcje = us.filter(u => String(u.id).startsWith(PREFIKS_INSTRUKCJI) && (String(u.opis || '').trim() || String(u.tresc || '').trim()))
     .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  dane.wydarzenia = us.filter(u => String(u.id).startsWith(PREFIKS_WYDARZENIA) && String(u.opis || '').trim()).map(u => {
+    let t = {};
+    try { t = JSON.parse(u.tresc || '{}'); } catch { /* stary zapis */ }
+    return { id: String(u.id).slice(PREFIKS_WYDARZENIA.length), nazwa: String(u.opis).trim(), od: t.od || '', do: t.do || '', miejsce: t.miejsce || '', status: t.status || 'aktywny' };
+  }).sort((a, b) => String(a.od || '9').localeCompare(String(b.od || '9')) || a.nazwa.localeCompare(b.nazwa, 'pl'));
   dane.zapotrzebowania = zp.sort((a, b) => String(b.utworzono || b.data || '').localeCompare(String(a.utworzono || a.data || '')));
   dane.zamowienia = z.sort((a, b) => String(b.data).localeCompare(String(a.data)) || String(b.utworzono || '').localeCompare(String(a.utworzono || '')) || numerZam(b.id) - numerZam(a.id));
   dane.pozycje = p;

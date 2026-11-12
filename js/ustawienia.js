@@ -5,11 +5,28 @@ import * as db from './db.js';
 import * as sync from './sync.js';
 import { ustawienia, zapiszUstawienia, polaczone, gotowe, wywolaj, wersjaApi, adresZFinansow, trybProsty } from './api.js';
 import { wypelnijPanele, klikPanelu } from './powiadomienia.js';
-import { $, esc, toast, okno } from './util.js';
+import { $, esc, toast, okno, dataKrotko } from './util.js';
 import { dane, wczytaj, nastepnyNumer, kodUzywanyPrzez } from './dane.js';
 import { WERSJA, WYMAGANE_API, PODMIOTY, PLATNOSC_DOMYSLNA, MAGAZYNY, symbolMagazynu } from './konfiguracja.js';
 
 const KLUCZ_MOTYWU = 'or-stoisko-motyw';
+
+/** Lista wydarzeń z Finansów: trwające i przyszłe (zakończone ponad tydzień temu i zamknięte – ukryte). */
+function opcjeWydarzen(u) {
+  const tydzien = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  const lista = dane.wydarzenia.filter(w => w.id === u.wydarzenie_id || (w.status !== 'zakończony' && (!w.do || w.do >= tydzien)));
+  const daty = w => (w.od ? ` · ${dataKrotko(w.od)}${w.do && w.do !== w.od ? '–' + dataKrotko(w.do) : ''}` : '');
+  const reczne = u.wydarzenie && !lista.some(w => w.id === u.wydarzenie_id)
+    ? `<option value="txt:${esc(u.wydarzenie)}" selected>${esc(u.wydarzenie)} (wpisane ręcznie)</option>` : '';
+  return `<option value="">— bez wydarzenia (sprzedaż w magazynie) —</option>${reczne}${lista.map(w =>
+    `<option value="${esc(w.id)}" ${w.id === u.wydarzenie_id ? 'selected' : ''}>${esc(w.nazwa + daty(w))}</option>`).join('')}`;
+}
+function wybraneWydarzenie(v, stare) {
+  if (!v) return { id: '', nazwa: '' };
+  if (v.startsWith('txt:')) return { id: '', nazwa: v.slice(4) };
+  const w = dane.wydarzenia.find(x => x.id === v);
+  return w ? { id: w.id, nazwa: w.nazwa } : { id: stare.wydarzenie_id || '', nazwa: stare.wydarzenie || '' };
+}
 const motyw = () => { try { return localStorage.getItem(KLUCZ_MOTYWU) || 'auto'; } catch { return 'auto'; } };
 function ustawMotyw(m) {
   try { if (m === 'auto') localStorage.removeItem(KLUCZ_MOTYWU); else localStorage.setItem(KLUCZ_MOTYWU, m); } catch { /* tylko na teraz */ }
@@ -52,8 +69,8 @@ function render(komunikat = '', klasa = '') {
         <select name="magazyn">${MAGAZYNY.map(([s, e]) => `<option value="${s}" ${symbolMagazynu(u.magazyn) === s ? 'selected' : ''}>${esc(e)}</option>`).join('')}</select>
         <span class="podpowiedz">Gotówka ze sprzedaży bez wydarzenia rozlicza się w kasie tego magazynu.</span></label>
       <label class="pole"><span class="etykieta">Wydarzenie</span>
-        <input name="wydarzenie" autocomplete="off" value="${esc(u.wydarzenie)}" placeholder="np. Kiermasz Koneser, grudzień 2026">
-        <span class="podpowiedz">Zapisuje się przy każdym zamówieniu. Wpisane wydarzenie = gotówka rozliczana jako to wydarzenie; puste = sprzedaż w magazynie. Wyczyść po wydarzeniu.</span></label>
+        <select name="wydarzenie">${opcjeWydarzen(u)}</select>
+        <span class="podpowiedz">Zapisuje się przy każdym zamówieniu: sprzedaż i gotówka liczą się w budżecie i kasie tego wydarzenia. „Bez wydarzenia” = sprzedaż w magazynie. Nowe wydarzenie dodaje się w aplikacji Finanse → Budżety i cele → Nowe wydarzenie.</span></label>
 
       <h2>Dane do płatności w wiadomości</h2>
       <label class="pole"><span class="etykieta">Odbiorca przelewu</span>
@@ -131,7 +148,8 @@ async function zapisz(form) {
     kontoEur: f.kontoEur.value.trim().toUpperCase(),
     swift: f.swift.value.trim().toUpperCase(),
   };
-  zapiszUstawienia({ url, token, kto, kod, podmiot: f.podmiot.value, magazyn: f.magazyn.value, wydarzenie: f.wydarzenie.value.trim(), platnosc });
+  const wyd = wybraneWydarzenie(f.wydarzenie.value, stare);
+  zapiszUstawienia({ url, token, kto, kod, podmiot: f.podmiot.value, magazyn: f.magazyn.value, wydarzenie: wyd.nazwa, wydarzenie_id: wyd.id, platnosc });
 
   const nowePolaczenie = url !== stare.url || token !== stare.token;
   if (nowePolaczenie) {

@@ -771,7 +771,7 @@ async function zapiszStan() {
       ...(stare || {}),
       id: numer, urzadzenie: stare?.urzadzenie || u.kto, podmiot: stare?.podmiot || u.podmiot, zrodlo: stare?.zrodlo || 'stoisko',
       data: s.data || stare?.data || dataLok(), klient_id: klientIdZ, klient_nowy: stare ? stare.klient_nowy : nowy,
-      wydarzenie: stare?.wydarzenie ?? u.wydarzenie, magazyn: magazynZamowienia(),
+      wydarzenie: stare?.wydarzenie ?? u.wydarzenie, wydarzenie_id: stare ? (stare.wydarzenie_id || '') : (u.wydarzenie_id || ''), magazyn: magazynZamowienia(),
       typ: wysylka ? 'wysylka' : 'miejsce',
       forma_platnosci: formy.length > 1 ? 'Mieszana' : (formy[0] || kw[0].forma),
       platnosci: JSON.stringify(kw.map(p => ({ forma: p.forma, kwota: p.kwota, zaplacone: ZAPLACONE_ZAWSZE.has(p.forma) || Boolean(p.zaplacone) }))),
