@@ -5,7 +5,7 @@
 
 import { $, esc, toast, okno, dataKrotko, normalizuj, bezSkoku } from './util.js';
 import { dane, PREFIKS_ZAPISOW } from './dane.js';
-import { ustawienia } from './api.js';
+import { ustawienia, wywolaj } from './api.js';
 import { ADRES_STOISKA } from './konfiguracja.js';
 import * as sync from './sync.js';
 
@@ -63,9 +63,18 @@ function htmlWpisu(w) {
     ${wczesniejsze.length ? `<div class="ml-powt">⚠︎ Ten sam e-mail lub telefon co: ${wczesniejsze.map(x =>
       `${esc(x.imie_nazwisko || '(bez imienia)')} (${esc(x.email)}${x.telefon ? ', ' + esc(x.telefon) : ''}, ${esc(dataKrotko(String(x.data || '')))})`).join('; ')}.
       Sprawdź, czy to ta sama osoba – nic nie zostało połączone.</div>` : ''}
+    ${htmlEcomail(w)}
     <div class="chipy male ml-statusy">${STATUSY.map(([s, e]) =>
       `<button type="button" class="chip" data-akcja="status" data-status="${s}" aria-pressed="${status(w) === s}">${esc(e.replace(' do listy głównej', ''))}</button>`).join('')}</div>
   </li>`;
+}
+
+/** Stan wysyłki do Ecomail (kolumna „ecomail” – wypełnia skrypt arkusza). */
+function htmlEcomail(w) {
+  const e = String(w.ecomail || '');
+  const doDecyzji = status(w) !== 'odrzucony' && (/^czeka|^błąd/.test(e));
+  if (!e) return '';
+  return `<div class="ml-info">Ecomail: <b>${esc(e)}</b>${doDecyzji ? ` <button type="button" class="maly" data-akcja="ecomail">Wyślij do Ecomail</button>` : ''}</div>`;
 }
 
 // ───────────── wydarzenia w formularzu ─────────────
@@ -216,6 +225,16 @@ async function klik(e) {
   } else if (a === 'status' && id) {
     await zapiszWiersze('LISTA_MAILINGOWA', [{ id, status: b.dataset.status }]);
     bezSkoku(odswiezListe);
+  } else if (a === 'ecomail' && id) {
+    b.disabled = true;
+    try {
+      const w = await wywolaj('ecomail', { ids: [id] }, 60000);
+      if (w.brak_konfiguracji) toast('Ecomail nie jest jeszcze podłączony w skrypcie arkusza.', 'blad', 8000);
+      else toast('Ecomail: ' + (Object.values(w.wyniki || {})[0] || 'brak zmian'), /^wysłano/.test(Object.values(w.wyniki || {})[0] || '') ? 'ok' : 'blad', 8000);
+      await sync.synchronizuj();
+      const { wczytaj } = await import('./dane.js'); await wczytaj();
+      bezSkoku(odswiezListe);
+    } catch (err) { toast(err.message, 'blad', 8000); b.disabled = false; }
   } else if (a === 'csv') {
     const w = lista();
     if (!w.length) { toast('Brak wpisów do pobrania.', 'blad'); return; }

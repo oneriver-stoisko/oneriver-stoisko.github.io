@@ -294,7 +294,7 @@
       if (zle) zle.scrollIntoView({ block: 'center', behavior: 'smooth' });
       return;
     }
-    var wpis = { id: noweId(), imie_nazwisko: stan.imie.trim(), email: stan.email, telefon: stan.telefon.trim(), kraj: nazwaPl(stan.kraj), jezyk: jezyk,
+    var wpis = { id: noweId(), imie_nazwisko: stan.imie.trim(), email: stan.email, telefon: stan.telefon.trim(), kraj: nazwaPl(stan.kraj), kraj_kod: stan.kraj, jezyk: jezyk,
       zainteresowania: stan.zaint, wydarzenia: stan.wyd, zgoda: true, zgoda_tresc: 'v1-' + jezyk, wydarzenie: konf.w || '', wydarzenie_id: konf.wid || '',
       zrodlo: kiosk ? 'tablet' : 'telefon klienta', urzadzenie: konf.u || '', www: f.www.value };
     var kolejka = czytaj(KLUCZ_KOLEJKI, []);
