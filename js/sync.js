@@ -19,6 +19,7 @@ export const KLUCZE = {
   CENY_POZIOMOW: r => String(r.id),
   USTAWIENIA: r => String(r.id),
   ZAPOTRZEBOWANIA: r => String(r.id),
+  LISTA_MAILINGOWA: r => String(r.id),
 };
 let kartyPobierane = Object.keys(KLUCZE);
 

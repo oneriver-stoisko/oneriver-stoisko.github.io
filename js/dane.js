@@ -11,20 +11,23 @@ export const dane = {
   zamowienia: [], pozycje: [], klienci: [], cennik: [], produkty: [], grupy: [], magazyny: [],
   wysylki: [], grupyCenowe: [], cenySpecjalne: [], zKatalogu: false,
   poziomy: [], cenyPoziomow: new Map(), ustawienia: new Map(), stanyZDnia: '',
-  instrukcje: [], zapotrzebowania: [], wydarzenia: [],
+  instrukcje: [], zapotrzebowania: [], wydarzenia: [], listaMailingowa: [], zapisyWydarzen: [],
 };
 
 export const PREFIKS_INSTRUKCJI = 'instr:';
 // Wydarzenia tworzone w aplikacji Finanse (Budżety → Wydarzenie): wiersze USTAWIENIA z id „wydarzenie:<id>”
 // (opis = nazwa, tresc = JSON {od, do, miejsce, podmiot, status}).
 export const PREFIKS_WYDARZENIA = 'wydarzenie:';
+// Nadchodzące wydarzenia w formularzu listy mailingowej (lista.html): USTAWIENIA id „zapisy:<id>”, opis = nazwa,
+// tresc = JSON {od, do, link, opis, pokaz}. Usunięte – pusty opis.
+export const PREFIKS_ZAPISOW = 'zapisy:';
 const numerZam = id => Number(String(id).split('-').pop()) || 0;
 const prawda = v => v === true || /^(true|tak|1)$/i.test(String(v));
 export const aktywny = w => w.aktywna === '' || w.aktywna === undefined || prawda(w.aktywna);
 let podpis = '';
 
 const KARTY = ['ZAMOWIENIA', 'ZAMOWIENIA_POZ', 'KLIENCI', 'SPRZEDAZ_SGT', 'SPRZEDAZ_SGT_POZ', 'KATALOG', 'WYSYLKI', 'GRUPY_CENOWE', 'CENY_SPECJALNE',
-  'POZIOMY_CENOWE', 'CENY_POZIOMOW', 'USTAWIENIA', 'ZAPOTRZEBOWANIA'];
+  'POZIOMY_CENOWE', 'CENY_POZIOMOW', 'USTAWIENIA', 'ZAPOTRZEBOWANIA', 'LISTA_MAILINGOWA'];
 
 /** Wczytuje dane z pamięci urządzenia. Zwraca true, gdy coś się zmieniło od poprzedniego wczytania. */
 export async function wczytaj() {
@@ -33,7 +36,7 @@ export async function wczytaj() {
     + ':' + l.map(w => w.status || '').join('')).join('|');
   const zmiana = nowy !== podpis;
   podpis = nowy;
-  const [z, p, k, dok, poz, kat, wys, gr, cs, pc, cp, us, zp] = karty;
+  const [z, p, k, dok, poz, kat, wys, gr, cs, pc, cp, us, zp, lm] = karty;
   dane.poziomy = pc.sort((a, b) => num(a.kolejnosc) - num(b.kolejnosc) || String(a.nazwa).localeCompare(String(b.nazwa), 'pl'));
   dane.cenyPoziomow = new Map(cp.filter(c => c.cena !== '' && c.cena != null).map(c => [`${c.poziom_id}|${c.symbol}`, num(c.cena)]));
   dane.ustawienia = new Map(us.map(u => [String(u.id), String(u.tresc ?? '')]));
@@ -45,6 +48,13 @@ export async function wczytaj() {
     try { t = JSON.parse(u.tresc || '{}'); } catch { /* stary zapis */ }
     return { id: String(u.id).slice(PREFIKS_WYDARZENIA.length), nazwa: String(u.opis).trim(), od: t.od || '', do: t.do || '', miejsce: t.miejsce || '', status: t.status || 'aktywny' };
   }).sort((a, b) => String(a.od || '9').localeCompare(String(b.od || '9')) || a.nazwa.localeCompare(b.nazwa, 'pl'));
+  dane.zapisyWydarzen = us.filter(u => String(u.id).startsWith(PREFIKS_ZAPISOW) && String(u.opis || '').trim()).map(u => {
+    let t = {};
+    try { t = JSON.parse(u.tresc || '{}'); } catch { /* pusty */ }
+    return { id: String(u.id).slice(PREFIKS_ZAPISOW.length), nazwa: String(u.opis).trim(), od: t.od || '', do: t.do || '', link: t.link || '',
+      opis: t.opis || '', pokaz: t.pokaz !== false, wydarzenie_id: t.wydarzenie_id || '' };
+  }).sort((a, b) => String(a.od || '9').localeCompare(String(b.od || '9')));
+  dane.listaMailingowa = lm.sort((a, b) => String(b.utworzono || b.data || '').localeCompare(String(a.utworzono || a.data || '')));
   dane.zapotrzebowania = zp.sort((a, b) => String(b.utworzono || b.data || '').localeCompare(String(a.utworzono || a.data || '')));
   dane.zamowienia = z.sort((a, b) => String(b.data).localeCompare(String(a.data)) || String(b.utworzono || '').localeCompare(String(a.utworzono || '')) || numerZam(b.id) - numerZam(a.id));
   dane.pozycje = p;

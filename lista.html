@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#155E5B">
+<title>ONE RIVER – lista mailingowa</title>
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  :root { --tlo: #F4F1EA; --karta: #FFFFFF; --tekst: #15201E; --szary: #55635F; --linia: #CFC7B8; --rzeka: #155E5B; --na-rzece: #FFFFFF;
+    --blad: #A3261B; --tlo-blad: #FBEDEA; --zaznacz: #E3F0EE; --link: #155E5B; }
+  @media (prefers-color-scheme: dark) {
+    :root { --tlo: #0F1716; --karta: #182321; --tekst: #E7EEEB; --szary: #A9B7B3; --linia: #3A4B47; --rzeka: #1D7470; --na-rzece: #FFFFFF;
+      --blad: #FF9C90; --tlo-blad: #3A1B17; --zaznacz: #173634; --link: #7CC7C1; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--tlo); color: var(--tekst); }
+  body { font: 18px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-text-size-adjust: 100%; }
+  main { max-width: 640px; margin: 0 auto; padding: 18px 16px 48px; }
+  .gora { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .marka { font-weight: 800; letter-spacing: .16em; color: var(--link); font-size: 15px; user-select: none; -webkit-user-select: none; }
+  .jezyki { display: flex; gap: 6px; }
+  .jezyki button { min-width: 48px; min-height: 40px; border-radius: 999px; border: 1.5px solid var(--linia); background: var(--karta); color: var(--tekst);
+    font-weight: 700; font-size: 15px; font-family: inherit; cursor: pointer; }
+  .jezyki button[aria-pressed="true"] { background: var(--rzeka); border-color: var(--rzeka); color: var(--na-rzece); }
+  h1 { font-size: 28px; line-height: 1.15; margin: 18px 0 6px; }
+  .opis { color: var(--szary); margin: 0 0 20px; }
+  .wydarzenie { display: inline-block; margin: 0 0 14px; padding: 4px 12px; border-radius: 999px; background: var(--zaznacz); color: var(--tekst); font-size: 15px; }
+  label.pole { display: block; margin-bottom: 14px; }
+  .etykieta { display: block; font-weight: 600; font-size: 16px; margin-bottom: 6px; }
+  .etykieta small { font-weight: 400; color: var(--szary); }
+  input[type=text], input[type=email], input[type=tel], select {
+    width: 100%; min-height: 54px; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--linia);
+    background: var(--karta); color: var(--tekst); font-size: 19px; line-height: 1.3; font-family: inherit; }
+  input:focus, select:focus { outline: 3px solid color-mix(in srgb, var(--rzeka) 45%, transparent); border-color: var(--rzeka); }
+  .zle input { border-color: var(--blad); }
+  fieldset { border: 0; padding: 0; margin: 4px 0 16px; }
+  legend { font-weight: 600; font-size: 16px; margin-bottom: 8px; padding: 0; }
+  .wybor { display: flex; align-items: flex-start; gap: 12px; padding: 13px 14px; border: 1.5px solid var(--linia); border-radius: 12px;
+    background: var(--karta); margin-bottom: 8px; cursor: pointer; }
+  .wybor:has(input:checked) { border-color: var(--rzeka); background: var(--zaznacz); }
+  .wybor input { width: 26px; height: 26px; margin: 0; flex: none; accent-color: var(--rzeka); }
+  .zgoda { font-size: 16px; }
+  .zgoda.zle { border-color: var(--blad); background: var(--tlo-blad); }
+  .rodo { font-size: 13.5px; color: var(--szary); margin: 4px 2px 18px; }
+  .rodo summary { cursor: pointer; color: var(--link); font-weight: 600; min-height: 32px; }
+  .blad { color: var(--blad); font-weight: 600; font-size: 15px; margin: -6px 0 12px; }
+  button.glowny { width: 100%; min-height: 60px; border: 0; border-radius: 14px; background: var(--rzeka); color: var(--na-rzece);
+    font-weight: 700; font-size: 20px; font-family: inherit; cursor: pointer; }
+  button.glowny:disabled { opacity: .6; }
+  .pulapka { position: absolute; left: -5000px; width: 1px; height: 1px; overflow: hidden; }
+  .dzieki { text-align: center; padding: 70px 0 30px; }
+  .dzieki .znak { width: 92px; height: 92px; border-radius: 50%; background: var(--rzeka); color: var(--na-rzece); font-size: 52px; line-height: 92px; margin: 0 auto 18px; }
+  .dzieki h1 { font-size: 32px; }
+  .dzieki p { color: var(--szary); font-size: 19px; }
+  .dzieki button { margin-top: 26px; width: auto; padding: 0 28px; }
+  .stopka { margin-top: 28px; font-size: 13px; color: var(--szary); text-align: center; }
+  .kolejka { font-size: 13px; color: var(--szary); text-align: center; margin-top: 10px; }
+  .wyjscie { position: fixed; right: 0; bottom: 0; width: 64px; height: 64px; border: 0; background: transparent; color: var(--linia);
+    font-size: 20px; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  .wyjscie.trzymaj { color: var(--rzeka); }
+  .brak { padding: 40px 0; color: var(--blad); }
+</style>
+</head>
+<body>
+<main id="m"></main>
+<button type="button" class="wyjscie" id="wyjscie" hidden aria-label="Powrót do Stoiska (przytrzymaj)">⋯</button>
+<script>
+(function () {
+  'use strict';
+  // ── konfiguracja z linku (#api=…&w=…&wid=…&u=…&j=…&k=1); na tablecie (k=1) zapamiętana na stałe
+  var KLUCZ_KONF = 'or-lista-konfig', KLUCZ_KOLEJKI = 'or-lista-kolejka';
+  var czytaj = function (k, d) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
+  var pisz = function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* bez pamięci */ } };
+  var p = new URLSearchParams(location.hash.replace(/^#/, ''));
+  var konf = p.get('api') ? { api: p.get('api'), w: p.get('w') || '', wid: p.get('wid') || '', u: p.get('u') || '', j: p.get('j') || '', k: p.get('k') === '1' } : czytaj(KLUCZ_KONF, null);
+  if (konf && konf.k) pisz(KLUCZ_KONF, konf);
+  var kiosk = !!(konf && konf.k);
+
+  var T = {
+    pl: { wydTyt: 'Nadchodzące wydarzenia', wydOpis: 'Zaznacz, na które chcesz się zapisać – wyślemy Ci szczegóły i link do zapisów.', wydLink: 'Strona zapisów', tytul: 'Dołącz do listy One River', opis: 'Zostaw kontakt – będziemy informować Cię o nowościach w sklepie, wyprawach i spotkaniach.',
+      imie: 'Imię i nazwisko', email: 'E-mail', telefon: 'Telefon', opcja: '(nieobowiązkowo)', kraj: 'Kraj', zaint: 'Co Cię interesuje?',
+      sklep: 'Sklep i rękodzieło z Ameryki Południowej', wyprawy: 'Wyprawy do społeczności rdzennych', ceremonie: 'Ceremonie, warsztaty i spotkania',
+      zgoda: 'Chcę otrzymywać od ONE RIVER sp. z o.o. newsletter i informacje o ofercie na podany adres e-mail (oraz SMS-em, jeśli podam telefon). Zgodę mogę w każdej chwili wycofać.',
+      rodoTyt: 'Informacja o danych osobowych',
+      rodo: 'Administratorem Twoich danych jest ONE RIVER sp. z o.o. (kontakt: info@oneriver.pl). Dane przetwarzamy na podstawie Twojej zgody wyłącznie w celu wysyłania informacji o naszej działalności – do czasu wycofania zgody. Nie przekazujemy ich innym firmom w celach marketingowych. Masz prawo dostępu do swoich danych, ich sprostowania, usunięcia, ograniczenia przetwarzania i przenoszenia, a także prawo wniesienia skargi do Prezesa Urzędu Ochrony Danych Osobowych. Podanie danych jest dobrowolne.',
+      zapisz: 'Zapisz mnie', zapisuje: 'Zapisuję…', dzieki: 'Dziękujemy!', dziekiOpis: 'Jesteś na liście One River. Do zobaczenia!', nastepna: 'Następna osoba',
+      bEmail: 'Wpisz poprawny adres e-mail.', bZgoda: 'Zaznacz zgodę – bez niej nie możemy wysyłać wiadomości.', bApi: 'Ten formularz trzeba otworzyć ze Stoiska (brak adresu zapisu).',
+      kolejka: 'Czeka na wysłanie (brak internetu): ', wyjscie: 'Przytrzymaj, aby wrócić do Stoiska' },
+    en: { wydTyt: 'Upcoming events', wydOpis: 'Tick the ones you would like to join – we will send you the details and the sign-up link.', wydLink: 'Sign-up page', tytul: 'Join the One River list', opis: 'Leave your details and we will keep you posted about our shop, journeys and gatherings.',
+      imie: 'Full name', email: 'E-mail', telefon: 'Phone', opcja: '(optional)', kraj: 'Country', zaint: 'What are you interested in?',
+      sklep: 'Shop and handicrafts from South America', wyprawy: 'Journeys to Indigenous communities', ceremonie: 'Ceremonies, workshops and gatherings',
+      zgoda: 'I would like to receive the newsletter and information about the offer from ONE RIVER sp. z o.o. at the e-mail address provided (and by text message if I give my phone number). I can withdraw my consent at any time.',
+      rodoTyt: 'Personal data information',
+      rodo: 'The controller of your personal data is ONE RIVER sp. z o.o. (contact: info@oneriver.pl). We process your data on the basis of your consent, solely to send you information about our activities, until you withdraw your consent. We do not pass it on to other companies for marketing purposes. You have the right to access, rectify, erase, restrict and port your data, and to lodge a complaint with the Polish data protection authority (President of UODO). Providing your data is voluntary.',
+      zapisz: 'Sign me up', zapisuje: 'Saving…', dzieki: 'Thank you!', dziekiOpis: 'You are now on the One River list. See you soon!', nastepna: 'Next person',
+      bEmail: 'Please enter a valid e-mail address.', bZgoda: 'Please tick the consent box – without it we cannot send you messages.', bApi: 'This form must be opened from the Stoisko app.',
+      kolejka: 'Waiting to be sent (no internet): ', wyjscie: 'Hold to return to Stoisko' },
+    es: { wydTyt: 'Próximos eventos', wydOpis: 'Marca los que te interesan: te enviaremos los detalles y el enlace de inscripción.', wydLink: 'Página de inscripción', tytul: 'Únete a la lista de One River', opis: 'Déjanos tus datos y te mantendremos al tanto de nuestra tienda, viajes y encuentros.',
+      imie: 'Nombre y apellido', email: 'Correo electrónico', telefon: 'Teléfono', opcja: '(opcional)', kraj: 'País', zaint: '¿Qué te interesa?',
+      sklep: 'Tienda y artesanía de Sudamérica', wyprawy: 'Viajes a comunidades indígenas', ceremonie: 'Ceremonias, talleres y encuentros',
+      zgoda: 'Deseo recibir de ONE RIVER sp. z o.o. el boletín e información sobre su oferta en el correo electrónico indicado (y por SMS si facilito mi teléfono). Puedo retirar mi consentimiento en cualquier momento.',
+      rodoTyt: 'Información sobre datos personales',
+      rodo: 'El responsable del tratamiento de tus datos es ONE RIVER sp. z o.o. (contacto: info@oneriver.pl). Tratamos tus datos sobre la base de tu consentimiento, únicamente para enviarte información sobre nuestras actividades, hasta que lo retires. No los cedemos a otras empresas con fines comerciales. Tienes derecho de acceso, rectificación, supresión, limitación del tratamiento y portabilidad, así como a presentar una reclamación ante la autoridad polaca de protección de datos (Presidente de la UODO). Facilitar los datos es voluntario.',
+      zapisz: 'Inscribirme', zapisuje: 'Guardando…', dzieki: '¡Gracias!', dziekiOpis: 'Ya estás en la lista de One River. ¡Hasta pronto!', nastepna: 'Siguiente persona',
+      bEmail: 'Introduce un correo electrónico válido.', bZgoda: 'Marca la casilla de consentimiento; sin ella no podemos enviarte mensajes.', bApi: 'Este formulario debe abrirse desde la aplicación Stoisko.',
+      kolejka: 'Pendiente de envío (sin internet): ', wyjscie: 'Mantén pulsado para volver a Stoisko' },
+    fr: { wydTyt: 'Événements à venir', wydOpis: 'Cochez ceux auxquels vous souhaitez participer – nous vous enverrons les détails et le lien d’inscription.', wydLink: 'Page d’inscription', tytul: 'Rejoignez la liste One River', opis: 'Laissez-nous vos coordonnées et nous vous tiendrons informé(e) de notre boutique, de nos voyages et de nos rencontres.',
+      imie: 'Nom et prénom', email: 'E-mail', telefon: 'Téléphone', opcja: '(facultatif)', kraj: 'Pays', zaint: 'Qu’est-ce qui vous intéresse ?',
+      sklep: 'Boutique et artisanat d’Amérique du Sud', wyprawy: 'Voyages auprès des communautés autochtones', ceremonie: 'Cérémonies, ateliers et rencontres',
+      zgoda: 'J’accepte de recevoir de ONE RIVER sp. z o.o. la newsletter et des informations sur son offre à l’adresse e-mail indiquée (et par SMS si je donne mon numéro). Je peux retirer mon consentement à tout moment.',
+      rodoTyt: 'Informations sur les données personnelles',
+      rodo: 'Le responsable du traitement de vos données est ONE RIVER sp. z o.o. (contact : info@oneriver.pl). Nous traitons vos données sur la base de votre consentement, uniquement pour vous envoyer des informations sur nos activités, jusqu’au retrait de celui-ci. Nous ne les transmettons pas à d’autres entreprises à des fins commerciales. Vous disposez d’un droit d’accès, de rectification, d’effacement, de limitation du traitement et de portabilité, ainsi que du droit d’introduire une réclamation auprès de l’autorité polonaise de protection des données (Président de l’UODO). La fourniture de vos données est facultative.',
+      zapisz: 'Je m’inscris', zapisuje: 'Enregistrement…', dzieki: 'Merci !', dziekiOpis: 'Vous êtes inscrit(e) sur la liste One River. À bientôt !', nastepna: 'Personne suivante',
+      bEmail: 'Saisissez une adresse e-mail valide.', bZgoda: 'Cochez la case de consentement – sans elle, nous ne pouvons pas vous écrire.', bApi: 'Ce formulaire doit être ouvert depuis l’application Stoisko.',
+      kolejka: 'En attente d’envoi (pas d’internet) : ', wyjscie: 'Maintenez appuyé pour revenir à Stoisko' },
+  };
+  var JEZYKI = ['pl', 'en', 'es', 'fr'];
+  var DOMYSLNY_KRAJ = { pl: 'PL', en: 'GB', es: 'ES', fr: 'FR' };
+  var GLOWNE_KRAJE = ['PL', 'GB', 'DE', 'NL', 'FR', 'ES', 'PT', 'IE', 'IT', 'BE', 'CH', 'AT', 'US', 'CO', 'EC', 'PE', 'MX'];
+  var jezyk = JEZYKI.indexOf(konf && konf.j) >= 0 ? konf.j : (JEZYKI.indexOf((navigator.language || '').slice(0, 2)) >= 0 && !kiosk ? navigator.language.slice(0, 2) : 'pl');
+  var stan = { widok: 'formularz', imie: '', email: '', telefon: '', kraj: '', zaint: [], wyd: [], zgoda: false, bledy: {}, wysylanie: false };
+  var KLUCZ_WYD = 'or-lista-wydarzenia';
+  var wydarzenia = czytaj(KLUCZ_WYD, []);
+  var esc = function (t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+
+  var kraje = {};
+  function listaKrajow(j) {
+    if (kraje[j]) return kraje[j];
+    var out = [];
+    try {
+      var dn = new Intl.DisplayNames([j], { type: 'region' });
+      var L = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      for (var a = 0; a < 26; a++) for (var b = 0; b < 26; b++) {
+        var c = L[a] + L[b], n = dn.of(c);
+        if (n && n !== c && !/^(AA|Q[M-Z]|X[A-Z]|ZZ|EU|EZ|UN)$/.test(c)) out.push([c, n]);
+      }
+    } catch (e) { GLOWNE_KRAJE.forEach(function (c) { out.push([c, c]); }); }
+    out.sort(function (x, y) { return x[1].localeCompare(y[1], j); });
+    return (kraje[j] = out);
+  }
+  var nazwaPl = function (kod) { try { return new Intl.DisplayNames(['pl'], { type: 'region' }).of(kod) || kod; } catch (e) { return kod; } };
+
+  function render() {
+    var t = T[jezyk];
+    document.documentElement.lang = jezyk;
+    document.title = 'ONE RIVER – ' + t.tytul;
+    var m = document.getElementById('m');
+    var gora = '<div class="gora"><span class="marka">ONE RIVER</span><div class="jezyki">' + JEZYKI.map(function (j) {
+      return '<button type="button" data-jezyk="' + j + '" aria-pressed="' + (j === jezyk) + '">' + j.toUpperCase() + '</button>'; }).join('') + '</div></div>';
+    if (!konf || !konf.api) { m.innerHTML = gora + '<p class="brak">' + esc(t.bApi) + '</p>'; return; }
+    if (stan.widok === 'dzieki') {
+      m.innerHTML = gora + '<div class="dzieki"><div class="znak">✓</div><h1>' + esc(t.dzieki) + '</h1><p>' + esc(t.dziekiOpis) + '</p>'
+        + (kiosk ? '<button type="button" class="glowny" data-akcja="nastepna">' + esc(t.nastepna) + '</button>' : '') + '</div>' + htmlKolejki();
+      return;
+    }
+    if (!stan.kraj) stan.kraj = DOMYSLNY_KRAJ[jezyk];
+    var lista = listaKrajow(jezyk), nazwy = {};
+    lista.forEach(function (k) { nazwy[k[0]] = k[1]; });
+    var opcje = GLOWNE_KRAJE.filter(function (c) { return nazwy[c]; }).map(function (c) { return [c, nazwy[c]]; });
+    var ac = kiosk ? 'off' : 'on';
+    m.innerHTML = gora
+      + '<h1>' + esc(t.tytul) + '</h1><p class="opis">' + esc(t.opis) + '</p>'
+      + (konf.w ? '<span class="wydarzenie">' + esc(konf.w) + '</span>' : '')
+      + '<form id="f" novalidate>'
+      + '<label class="pole"><span class="etykieta">' + esc(t.imie) + '</span><input type="text" name="imie" value="' + esc(stan.imie) + '" autocomplete="' + (kiosk ? 'off' : 'name') + '" autocapitalize="words" maxlength="120"></label>'
+      + '<label class="pole' + (stan.bledy.email ? ' zle' : '') + '"><span class="etykieta">' + esc(t.email) + ' *</span><input type="email" name="email" value="' + esc(stan.email) + '" autocomplete="' + (kiosk ? 'off' : 'email') + '" inputmode="email" autocapitalize="off" spellcheck="false" maxlength="120"></label>'
+      + (stan.bledy.email ? '<p class="blad">' + esc(t.bEmail) + '</p>' : '')
+      + '<label class="pole"><span class="etykieta">' + esc(t.telefon) + ' <small>' + esc(t.opcja) + '</small></span><input type="tel" name="telefon" value="' + esc(stan.telefon) + '" autocomplete="' + (kiosk ? 'off' : 'tel') + '" inputmode="tel" maxlength="30"></label>'
+      + '<label class="pole"><span class="etykieta">' + esc(t.kraj) + '</span><select name="kraj">'
+      + opcje.map(function (k) { return '<option value="' + k[0] + '"' + (k[0] === stan.kraj ? ' selected' : '') + '>' + esc(k[1]) + '</option>'; }).join('')
+      + '<option disabled>──────────</option>'
+      + lista.filter(function (k) { return GLOWNE_KRAJE.indexOf(k[0]) < 0; }).map(function (k) { return '<option value="' + k[0] + '"' + (k[0] === stan.kraj ? ' selected' : '') + '>' + esc(k[1]) + '</option>'; }).join('')
+      + '</select></label>'
+      + '<fieldset><legend>' + esc(t.zaint) + ' <small style="font-weight:400;color:var(--szary)">' + esc(t.opcja) + '</small></legend>'
+      + ['sklep', 'wyprawy', 'ceremonie'].map(function (z) {
+          return '<label class="wybor"><input type="checkbox" name="zaint" value="' + z + '"' + (stan.zaint.indexOf(z) >= 0 ? ' checked' : '') + '><span>' + esc(t[z]) + '</span></label>'; }).join('')
+      + '</fieldset>'
+      + htmlWydarzen(t)
+      + '<label class="wybor zgoda' + (stan.bledy.zgoda ? ' zle' : '') + '"><input type="checkbox" name="zgoda"' + (stan.zgoda ? ' checked' : '') + '><span>' + esc(t.zgoda) + ' *</span></label>'
+      + (stan.bledy.zgoda ? '<p class="blad">' + esc(t.bZgoda) + '</p>' : '')
+      + '<details class="rodo"><summary>' + esc(t.rodoTyt) + '</summary><p>' + esc(t.rodo) + '</p></details>'
+      + '<div class="pulapka" aria-hidden="true"><input type="text" name="www" tabindex="-1" autocomplete="off"></div>'
+      + '<button type="submit" class="glowny"' + (stan.wysylanie ? ' disabled' : '') + '>' + esc(stan.wysylanie ? t.zapisuje : t.zapisz) + '</button>'
+      + '</form>' + htmlKolejki()
+      + '<p class="stopka">ONE RIVER sp. z o.o. · info@oneriver.pl</p>';
+  }
+  function htmlKolejki() {
+    var n = czytaj(KLUCZ_KOLEJKI, []).length;
+    return kiosk && n ? '<p class="kolejka">' + esc(T[jezyk].kolejka) + n + '</p>' : '';
+  }
+
+  // zapamiętuje to, co wpisano, zanim przerysujemy ekran (zmiana języka, błędy)
+  function zbierz() {
+    var f = document.getElementById('f');
+    if (!f) return;
+    stan.imie = f.imie.value; stan.email = f.email.value; stan.telefon = f.telefon.value; stan.kraj = f.kraj.value;
+    stan.zaint = Array.prototype.slice.call(f.querySelectorAll('input[name=zaint]:checked')).map(function (x) { return x.value; });
+    stan.wyd = Array.prototype.slice.call(f.querySelectorAll('input[name=wyd]:checked')).map(function (x) { return x.value; });
+    stan.zgoda = f.zgoda.checked;
+  }
+  function daty(w) {
+    var d = function (t) { return new Date(t + 'T12:00:00'); };
+    try {
+      var f = new Intl.DateTimeFormat(jezyk, { day: 'numeric', month: 'long', year: 'numeric' });
+      if (w.od && w.do && w.do !== w.od && f.formatRange) return f.formatRange(d(w.od), d(w.do));
+      return w.od ? f.format(d(w.od)) : '';
+    } catch (e) { return [w.od, w.do].filter(Boolean).join(' – '); }
+  }
+  function htmlWydarzen(t) {
+    var dzis = new Date().toISOString().slice(0, 10);
+    var lista = wydarzenia.filter(function (w) { return (w.do || w.od || '9999') >= dzis; });
+    if (!lista.length) return '';
+    return '<fieldset><legend>' + esc(t.wydTyt) + '</legend><p class="opis" style="margin:-4px 0 10px;font-size:15px">' + esc(t.wydOpis) + '</p>'
+      + lista.map(function (w) {
+        return '<label class="wybor"><input type="checkbox" name="wyd" value="' + esc(w.id) + '"' + (stan.wyd.indexOf(w.id) >= 0 ? ' checked' : '') + '><span>'
+          + '<b>' + esc(w.nazwa) + '</b>' + (daty(w) ? '<br><span style="color:var(--szary);font-size:15px">' + esc(daty(w)) + '</span>' : '')
+          + (w.opis ? '<br><span style="font-size:15px">' + esc(w.opis) + '</span>' : '')
+          + (w.link && !kiosk ? '<br><a href="' + esc(w.link) + '" target="_blank" rel="noopener" style="color:var(--link);font-size:15px;font-weight:600">' + esc(t.wydLink) + ' ↗</a>' : '')
+          + '</span></label>'; }).join('')
+      + '</fieldset>';
+  }
+  function pobierzWydarzenia() {
+    if (!konf || !konf.api) return;
+    fetch(konf.api, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ akcja: 'formularzListy' }), redirect: 'follow' })
+      .then(function (r) { return r.json(); })
+      .then(function (o) {
+        if (!o.ok || !o.dane || !Array.isArray(o.dane.wydarzenia)) return;
+        var nowe = JSON.stringify(o.dane.wydarzenia);
+        if (nowe === JSON.stringify(wydarzenia)) return;
+        wydarzenia = o.dane.wydarzenia; pisz(KLUCZ_WYD, wydarzenia);
+        if (stan.widok === 'formularz') { zbierz(); render(); }
+      }, function () { /* bez internetu – zostaje lista z pamięci */ });
+  }
+  function wyczysc() {
+    stan = { widok: 'formularz', imie: '', email: '', telefon: '', kraj: '', zaint: [], wyd: [], zgoda: false, bledy: {}, wysylanie: false };
+    if (konf && JEZYKI.indexOf(konf.j) >= 0) jezyk = konf.j;
+  }
+
+  var noweId = function () {
+    var b = new Uint8Array(6);
+    (window.crypto || {}).getRandomValues ? crypto.getRandomValues(b) : b.forEach(function (_, i) { b[i] = Math.random() * 256; });
+    var d = new Date();
+    var p2 = function (n) { return String(n).padStart(2, '0'); };
+    return 'ML-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '-' + Array.prototype.map.call(b, function (x) { return x.toString(16).padStart(2, '0'); }).join('');
+  };
+
+  var wysylam = false;
+  function wyslijKolejke() {
+    if (wysylam || !konf || !konf.api) return Promise.resolve();
+    var kolejka = czytaj(KLUCZ_KOLEJKI, []);
+    if (!kolejka.length) return Promise.resolve();
+    wysylam = true;
+    var wpis = kolejka[0];
+    return fetch(konf.api, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ akcja: 'zapiszSie', wpis: wpis }), redirect: 'follow' })
+      .then(function (r) { return r.json(); })
+      .then(function (o) {
+        var trwaly = !o.ok && /e-mail|zgod|Odrzucono|Nieprawidłowy/i.test(o.blad || '');
+        if (o.ok || trwaly) {
+          pisz(KLUCZ_KOLEJKI, czytaj(KLUCZ_KOLEJKI, []).filter(function (x) { return x.id !== wpis.id; }));
+          wysylam = false;
+          return wyslijKolejke();
+        }
+        wysylam = false;
+      }, function () { wysylam = false; })
+      .then(function () { var k = document.querySelector('.kolejka'); if (k || kiosk) { var n = czytaj(KLUCZ_KOLEJKI, []).length; if (k && !n) k.remove(); else if (k) k.textContent = T[jezyk].kolejka + n; } });
+  }
+
+  var zegarReset = null, zegarBezczynnosci = null;
+  function bezczynnosc() {
+    if (!kiosk) return;
+    clearTimeout(zegarBezczynnosci);
+    // dane poprzedniej osoby nie mogą zostać na ekranie – po 3 minutach bez dotyku czyścimy formularz
+    zegarBezczynnosci = setTimeout(function () { wyczysc(); render(); }, 180000);
+  }
+
+  document.addEventListener('click', function (e) {
+    var bj = e.target.closest('[data-jezyk]');
+    if (bj) { zbierz(); if (!stan.kraj || stan.kraj === DOMYSLNY_KRAJ[jezyk]) stan.kraj = ''; jezyk = bj.dataset.jezyk; render(); return; }
+    if (e.target.closest('[data-akcja="nastepna"]')) { clearTimeout(zegarReset); wyczysc(); render(); window.scrollTo(0, 0); }
+  });
+  document.addEventListener('input', bezczynnosc);
+  document.addEventListener('touchstart', bezczynnosc, { passive: true });
+  document.addEventListener('submit', function (e) {
+    e.preventDefault();
+    zbierz();
+    var f = document.getElementById('f');
+    stan.email = stan.email.trim();
+    stan.bledy = { email: !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(stan.email), zgoda: !stan.zgoda };
+    if (stan.bledy.email || stan.bledy.zgoda) {
+      render();
+      var zle = document.querySelector('.zle input, .zle');
+      if (zle) zle.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
+    }
+    var wpis = { id: noweId(), imie_nazwisko: stan.imie.trim(), email: stan.email, telefon: stan.telefon.trim(), kraj: nazwaPl(stan.kraj), jezyk: jezyk,
+      zainteresowania: stan.zaint, wydarzenia: stan.wyd, zgoda: true, zgoda_tresc: 'v1-' + jezyk, wydarzenie: konf.w || '', wydarzenie_id: konf.wid || '',
+      zrodlo: kiosk ? 'tablet' : 'telefon klienta', urzadzenie: konf.u || '', www: f.www.value };
+    var kolejka = czytaj(KLUCZ_KOLEJKI, []);
+    kolejka.push(wpis);
+    pisz(KLUCZ_KOLEJKI, kolejka);
+    if (!kiosk) {
+      // telefon klienta: czekamy na potwierdzenie, żeby nie zamknął strony przed wysłaniem
+      stan.wysylanie = true; render();
+      wyslijKolejke().then(function () { stan.widok = 'dzieki'; stan.wysylanie = false; render(); });
+      return;
+    }
+    stan.widok = 'dzieki';
+    render();
+    window.scrollTo(0, 0);
+    wyslijKolejke();
+    clearTimeout(zegarReset);
+    zegarReset = setTimeout(function () { wyczysc(); render(); }, 9000);
+  });
+
+  // ── wyjście do Stoiska (tylko tablet): przytrzymanie ⋯ w prawym dolnym rogu przez 2 sekundy
+  var wyj = document.getElementById('wyjscie');
+  if (kiosk) {
+    wyj.hidden = false;
+    var trzymanie = null;
+    var start = function (e) { e.preventDefault(); wyj.classList.add('trzymaj'); trzymanie = setTimeout(function () { location.replace('./#mailing'); }, 2000); };
+    var stop = function () { wyj.classList.remove('trzymaj'); clearTimeout(trzymanie); };
+    wyj.addEventListener('pointerdown', start);
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (n) { wyj.addEventListener(n, stop); });
+    wyj.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    wyj.title = T[jezyk].wyjscie;
+  }
+  window.addEventListener('online', wyslijKolejke);
+  setInterval(wyslijKolejke, 30000);
+  // adres z konfiguracją nie powinien zostać w pasku (klient mógłby go zobaczyć lub skopiować)
+  if (kiosk && location.hash) history.replaceState(null, '', location.pathname);
+  render();
+  wyslijKolejke();
+  pobierzWydarzenia();
+  setInterval(function () { if (stan.widok === 'formularz' && !document.querySelector('#f input:checked, #f input[name=email]:not([value=""])')) pobierzWydarzenia(); }, 600000);
+})();
+</script>
+</body>
+</html>

@@ -15,6 +15,7 @@ import { ekran as ekranProsty } from './prosty.js';
 import { ekran as ekranWysylek, ileDoWyslania } from './wysylki.js';
 import { ekran as ekranInstrukcji } from './instrukcje.js';
 import { ekran as ekranPotrzeb, ileNowychZapotrzebowan } from './potrzebuje.js';
+import { ekran as ekranMailingu } from './mailing.js';
 import { ustawZnaczek, odswiezCichutko } from './powiadomienia.js';
 import { ileDoPotwierdzenia } from './lista.js';
 import { ADRES_STOISKA } from './konfiguracja.js';
@@ -33,6 +34,7 @@ const TRASY = {
   wysylki: [ekranWysylek, 'wysylki', 'Do wysłania'],
   potrzebuje: [ekranPotrzeb, 'potrzebuje', 'Potrzebuję'],
   instrukcje: [ekranInstrukcji, 'instrukcje', 'Instrukcje'],
+  mailing: [ekranMailingu, 'mailing', 'Lista mailingowa'],
 };
 const TRASY_PROSTE = ['prosty', 'wysylki', 'potrzebuje', 'instrukcje', 'ustawienia'];
 

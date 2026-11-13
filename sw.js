@@ -1,11 +1,11 @@
 // Service worker stoiska: trzyma pliki aplikacji w pamięci urządzenia, żeby działała bez internetu.
 // Przy każdej nowej wersji zmień WERSJA (i WERSJA w js/konfiguracja.js).
-const WERSJA = 'or-stoisko-0.11.1';
+const WERSJA = 'or-stoisko-0.12.0';
 const OCR = 'or-stoisko-ocr';   // pliki rozpoznawania tekstu – pobierane przy pierwszym użyciu, potem z pamięci
 const PLIKI = [
   './', './index.html', './css/stoisko.css', './manifest.webmanifest',
   './js/app.js', './js/api.js', './js/db.js', './js/sync.js', './js/util.js', './js/dane.js', './js/konfiguracja.js',
-  './js/nowe.js', './js/lista.js', './js/zamowienie.js', './js/ustawienia.js', './js/wiadomosc.js', './js/klienci.js', './js/sklep.js', './js/poziomy.js', './js/inpost.js', './js/epp.js', './js/eksport-epp.js', './js/prosty.js', './js/wysylki.js', './js/potrzebuje.js', './js/instrukcje.js', './js/powiadomienia.js',
+  './js/nowe.js', './js/lista.js', './js/zamowienie.js', './js/ustawienia.js', './js/wiadomosc.js', './js/klienci.js', './js/sklep.js', './js/poziomy.js', './js/inpost.js', './js/epp.js', './js/eksport-epp.js', './js/prosty.js', './js/wysylki.js', './js/potrzebuje.js', './js/instrukcje.js', './js/powiadomienia.js', './js/mailing.js', './lista.html', './vendor/qrcode.js',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/icon-maskable-512.png',
 ];
 const CZCIONKI = 'or-stoisko-czcionki';
@@ -53,7 +53,13 @@ self.addEventListener('fetch', e => {
     return;
   }
   // strona „Dane do płatności” dla klientów – zawsze z sieci, nie podmieniamy jej na Stoisko
-  if (req.mode === 'navigate' && /\/zaplata\.html$/.test(new URL(req.url).pathname)) return;
+  if (req.mode === 'navigate' && /\/zaplata\.html$/.test(url.pathname)) return;
+  // formularz listy mailingowej (tablet na stoisku) – z sieci, a bez internetu z pamięci urządzenia
+  if (req.mode === 'navigate' && /\/lista\.html$/.test(url.pathname)) {
+    e.respondWith(fetch(req).then(r => { if (r.ok) { const kopia = r.clone(); caches.open(WERSJA).then(c => c.put('./lista.html', kopia)); } return r; })
+      .catch(() => caches.open(WERSJA).then(c => c.match('./lista.html'))));
+    return;
+  }
   if (req.mode === 'navigate') {
     e.respondWith(caches.open(WERSJA).then(c => c.match('./index.html')).then(z => z || fetch(req)));
     return;

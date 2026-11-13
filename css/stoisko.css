@@ -605,3 +605,30 @@ body.prosty .gora .sync { margin-left: auto; }
 .in-ustawienia { margin-top: 24px; font-size: 17px; }
 .zapisz-gora { min-height: 40px; padding: 6px 16px; border-radius: 999px; border: 0; background: var(--kukurydza); color: #2A1F02; font-weight: 800; font-size: 15px; }
 .zapisz-gora.zmieniono { box-shadow: 0 0 0 4px color-mix(in srgb, var(--kukurydza) 45%, transparent); }
+
+/* ───────── lista mailingowa ───────── */
+.mailing .etykieta-mag { color: var(--szary); font-size: 14.5px; align-self: center; }
+.mailing .chipy.male { margin-bottom: 10px; align-items: center; }
+.ml-przyciski { flex-wrap: wrap; }
+.ml-lista, .ml-wydarzenia { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.ml-wpis, .ml-wydarzenia > li { border: 1px solid var(--linia); border-radius: 12px; padding: 12px 14px; background: var(--papier); }
+.ml-wydarzenia > li .przyciski { margin-top: 8px; }
+.ml-glowa { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.ml-dane { margin-top: 2px; overflow-wrap: anywhere; }
+.ml-dane a, .ml-info a { color: var(--link); }
+.ml-info { color: var(--szary); font-size: 14.5px; margin-top: 2px; overflow-wrap: anywhere; }
+.ml-zapis { margin-top: 4px; padding: 4px 10px; border-radius: 8px; background: var(--tlo-info); color: var(--na-info); font-size: 14.5px; display: inline-block; }
+.ml-powt { margin-top: 6px; padding: 6px 10px; border-radius: 8px; background: var(--tlo-uwaga); color: var(--na-uwaga); font-size: 14px; }
+.ml-statusy { margin: 8px 0 0 !important; }
+.ml-status { font-size: 12.5px; font-weight: 700; padding: 2px 8px; border-radius: 6px; white-space: nowrap; background: var(--tlo-info); color: var(--na-info); }
+.ml-status.ml-przeniesiony { background: var(--tlo-ok); color: var(--na-ok); }
+.ml-status.ml-odrzucony { background: var(--papier-2); color: var(--szary); }
+.ml-daty { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ml-wyd-edycja { margin-top: 10px; }
+.ml-qr { background: #fff; padding: 10px; border-radius: 10px; max-width: 320px; margin: 0 auto; }
+.ml-qr svg { display: block; width: 100%; height: auto; }
+/* pełne Stoisko na wąskim telefonie: 6 zakładek w jednym rzędzie */
+@media (max-width: 430px) {
+  body:not(.prosty) .gora .nawigacja { flex-wrap: nowrap; justify-content: space-between; gap: 2px; flex: 1 1 100%; min-width: 0; }
+  body:not(.prosty) .nawigacja a { padding: 7px 5px; font-size: 13.5px; letter-spacing: -0.01em; }
+}
