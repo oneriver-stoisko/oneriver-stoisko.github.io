@@ -94,8 +94,10 @@ export function rozbierzTekst(tekst) {
 // ───────────── Poczta Polska (e-nadawca) ─────────────
 
 const NR_PP = /\b([A-Z]{2})\s?([0-9OoIlSB]{9})\s?PL\b/;
-const czyPoczta = linie => linie.some(l => NR_PP.test(l) && /\d{6}/.test(l.replace(/[OoIlSB]/g, '0')))
-  || (linie.some(l => /^adresat\b/i.test(l)) && linie.some(l => /kod pocztowy/i.test(l)));
+const NR_PX = /\b(P[A-Z])\s?([0-9OoIlSB]{10})\b/;              // Pocztex, np. PX7761103208
+const czyPoczta = linie => linie.some(l => (NR_PP.test(l) || NR_PX.test(l)) && /\d{6}/.test(l.replace(/[OoIlSB]/g, '0')))
+  || (linie.some(l => /\badresat\b/i.test(l)) && linie.some(l => /kod pocztowy/i.test(l)))
+  || linie.some(l => /\bpocztex\b|numer nadania/i.test(l)) && linie.some(l => /kod pocztowy/i.test(l));
 
 let kraje = null;
 /** [nazwa po polsku, kod ISO] – najdłuższe nazwy najpierw (np. „Stany Zjednoczone” przed „Stany”). */
@@ -118,22 +120,33 @@ function kraj(t) {
 }
 
 // e-nadawca to strona z dwiema kolumnami – rozpoznany wiersz bywa sklejony z prawą kolumną; odcinamy ją
-const PRAWA = /\s+(?:\S{1,2}\s+)?(?:Potwierdz|Zadeklar|Zwro[tł]|Usług|Traktow|Spos[oó]b|Informac|Kody\b|Instrukc|Atrybut|Numer nad|Cena\b|Masa\b|Kategor|Ekonom|Priorytet|L[aą]dowo|Poste|Zapisz|Uwagi|Dodatkowy|Deklarac)/i;
+const PRAWA = /\s+(?:\S{1,2}\s+)?(?:Potwierdz|Zadeklar|Zwro[tł]|Usług|Traktow|Spos[oó]b|Informac|Kody\b|Instrukc|Atrybut|Numer nad|Cena\b|Masa\b|Kategor|Ekonom|Priorytet|L[aą]dowo|Poste|Zapisz|Uwagi|Dodatkowy|Deklarac|Pobrani|Kwota pobr|Numer rachunku|Tytu[łl] pobr|Serwis|Format\b|Miejsce nad|Opcje odb|Koperta|Godzina|Warto[śs][ćc]|Ostro[żz]nie|Ubezpiecz|Podpaczki|Zam[óo]w kur|Telefon kom|Skrytka)/i;
 const lewa = t => String(t || '').split(PRAWA)[0].replace(/^(?:[x×|>]\s+)+/i, '').replace(/(\s+(?:[^\p{L}\d\s]+|[vVmMaO]))+$/u, '').trim();
 
 function rozbierzPoczte(linie) {
   const w = { imie: '', nazwisko: '', nazwa: '', telefon: '', email: '', paczkomat: '', adres: '', nrPrzesylki: '', kodNadania: '', kraj: '', krajNazwa: '',
-    miedzynarodowa: false, poczta: true };
+    miedzynarodowa: false, poczta: true, pobranie: 0, oplacaOdbiorca: false, usluga: '' };
   const i = re => linie.findIndex(l => re.test(l));
   const nastepna = re => { const k = i(re); return k >= 0 ? linie[k + 1] || '' : ''; };
 
   const nr = linie.map(l => NR_PP.exec(l)).find(Boolean);
-  if (nr) w.nrPrzesylki = nr[1] + nr[2].replace(/[Oo]/g, '0').replace(/[Il]/g, '1').replace(/S/g, '5').replace(/B/g, '8') + 'PL';
+  const cyfryNr = t => t.replace(/[Oo]/g, '0').replace(/[Il]/g, '1').replace(/S/g, '5').replace(/B/g, '8');
+  if (nr) w.nrPrzesylki = nr[1] + cyfryNr(nr[2]) + 'PL';
+  else { const px = linie.map(l => NR_PX.exec(l)).find(m => m && /\d{7}/.test(cyfryNr(m[2]))); if (px) w.nrPrzesylki = px[1] + cyfryNr(px[2]); }
+  const usl = lewa(nastepna(/^us[łl]uga\b/i)).split(/\s+(?:[vV©|]|O\b)/)[0].trim();
+  if (/pocztex|paczka|list|kurier/i.test(usl)) w.usluga = usl;
+  // pobranie: kwota pod etykietą „Kwota pobrania”; „Przesyłkę opłaci …” pojawia się tylko przy zaznaczonym „Przesyłkę opłaca odbiorca”
+  const iPob = linie.findIndex(l => /kwota pobrania/i.test(l));
+  if (iPob >= 0) for (let k = iPob; k < Math.min(linie.length, iPob + 3); k++) {
+    const m = /(?:^|\s)(\d{1,6}(?:[ ]\d{3})*[.,]\d{2})(?:\s|$)/.exec(k === iPob ? linie[k].split(/kwota pobrania/i)[1] || '' : linie[k]);
+    if (m) { w.pobranie = Number(m[1].replace(/\s/g, '').replace(',', '.')); break; }
+  }
+  w.oplacaOdbiorca = linie.some(l => /przesy[łl]k[ęe] op[łl]aci\b|adresat indywidualny|adresat umowny/i.test(l));
 
   const kr = kraj(lewa(nastepna(/^kraj\b/i)));
   if (kr) { w.krajNazwa = kr.nazwa; w.kraj = kr.kod; w.miedzynarodowa = kr.kod !== 'PL'; }
 
-  w.nazwa = lewa(nastepna(/^nazwisko/i)).replace(/[^\p{L}\s.'-]/gu, ' ').replace(/\s+/g, ' ').trim();
+  w.nazwa = lewa(nastepna(/^nazwisko(?!.*\bcd\b)/i)).replace(/[^\p{L}\s.'-]/gu, ' ').replace(/\s+/g, ' ').trim();
 
   const ulica = lewa(nastepna(/^u[l1i|]?[il1]?ca\b/i));
   const dom = /^([0-9][0-9A-Za-z-]*)\s*(?:\/\s*([0-9][0-9A-Za-z-]*))?/.exec(lewa(nastepna(/^numer domu/i)).replace(/^\D+(?=\d)/, '')) || [];
@@ -148,6 +161,13 @@ function rozbierzPoczte(linie) {
 
   const iAdr = Math.max(0, i(/^adresat\b/i));
   const tel = linie.slice(iAdr).find(l => /\+\s?\d{1,3}\b/.test(l));
+  if (!tel) {
+    const iTel = linie.findIndex(l => /^telefon/i.test(l));
+    const m = iTel >= 0 ? /^\+?[\d ]{9,15}/.exec((linie[iTel + 1] || '').trim()) : null;
+    const c = m ? tylkoCyfry(m[0]) : '';
+    if (c.length === 9) w.telefon = c;
+    else if (c.length === 11 && c.startsWith('48')) w.telefon = c.slice(2);
+  }
   if (tel) {
     const m = /\+\s?(\d{1,3})\b(.*)$/.exec(tel);
     // „+44 ▾ 07761 896488” – strzałka listy krajów bywa odczytana jako cyfra; odrzucamy pojedyncze znaki przed numerem

@@ -1,7 +1,7 @@
 // Stałe aplikacji stoiska. Dane do płatności są domyślne dla wszystkich urządzeń;
 // na danym urządzeniu można je zmienić w Ustawieniach.
 
-export const WERSJA = '0.12.1';
+export const WERSJA = '0.13.0';
 
 // Stoisko ma własny adres (osobna „strona” dla telefonu – inaczej Chrome na Androidzie myli je z Finansami).
 export const ADRES_STOISKA = 'https://oneriver-stoisko.github.io/';
@@ -32,9 +32,12 @@ export const FORMY = [
   ['BLIK', 'BLIK na telefon'],
   ['Gotówka', 'Gotówka'],
   ['Karta', 'Karta'],
+  ['Pobranie', 'Za pobraniem'],
 ];
 // Formy, przy których klient płaci później – SMS zawiera dane do płatności.
-export const PLATNE_POZNIEJ = new Set(['Przelew', 'BLIK']);
+export const PLATNE_POZNIEJ = new Set(['Przelew', 'BLIK', 'Pobranie']);
+// Za pobraniem: klient płaci przy odbiorze (kurier/listonosz), pieniądze przychodzą przelewem od przewoźnika – w Finansach jak przelew.
+export const POBRANIE = 'Pobranie';
 
 export const STATUSY = {
   nowe: 'nowe',                     // z formularza klienta – czeka na Twoje potwierdzenie

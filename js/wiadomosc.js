@@ -42,7 +42,7 @@ export function platnosciZamowienia(zam) {
   return [{ forma: zam.forma_platnosci || 'Przelew', kwota: num(zam.suma_brutto), zaplacone: zam.status === 'opłacone' || !PLATNE_POZNIEJ.has(zam.forma_platnosci) }];
 }
 const doZaplatyPrzed = pl => pl.filter(p => !p.zaplacone).reduce((a, p) => a + p.kwota, 0);
-const wDopelniaczu = f => ({ Gotówka: 'gotówką', Karta: 'kartą', BLIK: 'BLIK-iem', Przelew: 'przelewem' }[f] || String(f || '').toLowerCase());
+const wDopelniaczu = f => ({ Gotówka: 'gotówką', Karta: 'kartą', BLIK: 'BLIK-iem', Przelew: 'przelewem', Pobranie: 'za pobraniem' }[f] || String(f || '').toLowerCase());
 
 /** Język wiadomości: zapisany przy zamówieniu, a gdy go brak – angielski dla InPost International i płatności w EUR. */
 export const jezykZamowienia = zam => zam.jezyk === 'en' || zam.jezyk === 'pl' ? zam.jezyk
@@ -73,7 +73,8 @@ function trescEN(zam, pozycje) {
   if (zam.dostawa) {
     const koszt = num(zam.koszt_dostawy);
     const nazwa = zam.przewoznik === MIEDZYNARODOWY || czyInPost(zam.przewoznik) ? zam.przewoznik || 'InPost' : zam.dostawa;
-    linie.push(eur ? `Shipping – ${nazwa}${koszt ? '' : ': free'}` : `Shipping – ${nazwa}: ${koszt ? kwotaTxt(koszt) : 'free'}`);
+    linie.push(zam.oplaca_odbiorca === 'tak' ? `Shipping – ${nazwa}: postage paid on delivery`
+      : eur ? `Shipping – ${nazwa}${koszt ? '' : ': free'}` : `Shipping – ${nazwa}: ${koszt ? kwotaTxt(koszt) : 'free'}`);
     if (zam.adres_dostawy) linie.push(`${/paczkomat/i.test(zam.dostawa) ? 'Parcel locker / pickup point' : 'Address'}: ${String(zam.adres_dostawy).replace(/\s*\n\s*/g, ', ')}`);
     if (zam.nr_przesylki) {
       const link = linkSledzenia(zam.nr_przesylki, zam.przewoznik || 'InPost');
@@ -85,8 +86,11 @@ function trescEN(zam, pozycje) {
   linie.push(`Total: ${eur ? euroTxt(zam.suma_eur) : kwotaTxt(num(zam.suma_brutto))}`, '');
 
   const pl = platnosciZamowienia(zam);
-  const doZaplaty = pl.filter(p => !p.zaplacone).reduce((a, p) => a + p.kwota, 0);
-  if (doZaplaty <= 0.005) linie.push('Paid – thank you!');
+  const pobranie = pl.filter(p => !p.zaplacone && p.forma === 'Pobranie').reduce((a, p) => a + p.kwota, 0);
+  const doZaplaty = pl.filter(p => !p.zaplacone && p.forma !== 'Pobranie').reduce((a, p) => a + p.kwota, 0);
+  if (pobranie > 0.005) linie.push(`Cash on delivery: ${kwotaTxt(Math.round(pobranie * 100) / 100)} – please pay the courier when you receive the parcel${zam.oplaca_odbiorca === 'tak' ? ', plus the postage' : ''}.`);
+  if (doZaplaty <= 0.005 && pobranie <= 0.005) linie.push('Paid – thank you!');
+  else if (doZaplaty <= 0.005) { /* tylko pobranie */ }
   else if (eur) {
     linie.push(`To pay: ${euroTxt(zam.suma_eur)} by bank transfer (EUR)`);
     if (platnosc.odbiorcaEur || platnosc.odbiorca) linie.push(`Recipient: ${platnosc.odbiorcaEur || platnosc.odbiorca}`);
@@ -116,7 +120,8 @@ export function trescWiadomosci(zam, pozycje) {
   if (prod.length > MAKS_POZYCJI) linie.push(`…i jeszcze ${prod.length - MAKS_POZYCJI} poz.`);
   if (zam.dostawa) {
     const koszt = num(zam.koszt_dostawy);
-    linie.push(eur ? `Dostawa – ${zam.dostawa}${koszt ? '' : ': gratis'}` : `Dostawa – ${zam.dostawa}: ${koszt ? kwotaTxt(koszt) : 'gratis'}`);
+    linie.push(zam.oplaca_odbiorca === 'tak' ? `Dostawa – ${zam.dostawa}: koszt przesyłki płacisz przy odbiorze`
+      : eur ? `Dostawa – ${zam.dostawa}${koszt ? '' : ': gratis'}` : `Dostawa – ${zam.dostawa}: ${koszt ? kwotaTxt(koszt) : 'gratis'}`);
     if (zam.adres_dostawy) linie.push(`${/paczkomat/i.test(zam.dostawa) ? 'Paczkomat' : 'Adres'}: ${String(zam.adres_dostawy).replace(/\s*\n\s*/g, ', ')}`);
     if (zam.nr_przesylki) {
       const przew = zam.przewoznik || 'InPost';
@@ -130,7 +135,9 @@ export function trescWiadomosci(zam, pozycje) {
 
   const pl = platnosciZamowienia(zam);
   const zaplacone = pl.filter(p => p.zaplacone && p.kwota > 0);
-  const doZaplaty = pl.filter(p => !p.zaplacone).reduce((a, p) => a + p.kwota, 0);
+  const pobranie = pl.filter(p => !p.zaplacone && p.forma === 'Pobranie').reduce((a, p) => a + p.kwota, 0);
+  const doZaplaty = pl.filter(p => !p.zaplacone && p.forma !== 'Pobranie').reduce((a, p) => a + p.kwota, 0);
+  if (pobranie > 0.005) linie.push(`Płatność przy odbiorze (za pobraniem): ${kwotaTxt(Math.round(pobranie * 100) / 100)}${zam.oplaca_odbiorca === 'tak' ? ' + koszt przesyłki' : ''} – płacisz kurierowi lub listonoszowi.`);
   if (zaplacone.length && !eur) linie.push(`Zapłacono: ${zaplacone.map(p => `${kwotaTxt(p.kwota)} ${wDopelniaczu(p.forma)}`).join(', ')}.`);
   if (eur && doZaplatyPrzed(pl) <= 0.005) linie.push('Zapłacono – dziękujemy!');
   if (doZaplaty > 0.005 && eur) {

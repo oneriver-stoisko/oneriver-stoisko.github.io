@@ -55,7 +55,7 @@ export function dokumentZamowienia(z) {
   const kontrahent = kl ? { symbol: symbolKontrahenta(kl), nazwa: kl.nazwa || telefonE164(kl.telefon) || 'Klient Stoiska',
     telefon: kl.telefon || '', email: kl.email || '', ...adres(kl) } : null;
   const data = new Date(String(z.data || dataLok()).slice(0, 10) + 'T12:00:00');
-  const uwagi = [`Stoisko ${z.id}`, z.wydarzenie, z.nr_przesylki ? `InPost ${z.nr_przesylki}` : '', opisPl].filter(Boolean).join(' - ');
+  const uwagi = [`Stoisko ${z.id}`, z.wydarzenie, z.nr_przesylki ? `${z.przewoznik || 'InPost'} ${z.nr_przesylki}` : '', z.oplaca_odbiorca === 'tak' ? 'przesylke oplaca odbiorca' : '', opisPl].filter(Boolean).join(' - ');
 
   return { dokument: {
     numer: Number(String(z.id).split('-').pop()) || 1, pelnyNumer: String(z.id), numerZamowienia: String(z.id), data,

@@ -8,7 +8,7 @@ import { $, $$, esc, zaokr, kwotaTxt, iloscTxt, liczba, liczbaNaTekst, uuid, dat
 import { dane, wczytaj, szukajProduktow, nastepnyNumer, zapamietajNumer, klientPoTelefonie, telefonE164, klient as klientId,
   produktSymbolu, cenaKlienta, opisCenKlienta, zamowienie, pozycjeZamowienia, ustawienieTekst } from './dane.js';
 import { ustawienia, gotowe, wywolaj } from './api.js';
-import { FORMY, STATUSY, OSOBY_WYSYLKI, SYMBOL_TRANSPORTU, TRANSPORT_DOMYSLNY, czyTransport, symbolMagazynu, MAGAZYNY, PRZEWOZNICY, MIEDZYNARODOWY, czyInPost } from './konfiguracja.js';
+import { FORMY, POBRANIE, STATUSY, OSOBY_WYSYLKI, SYMBOL_TRANSPORTU, TRANSPORT_DOMYSLNY, czyTransport, symbolMagazynu, MAGAZYNY, PRZEWOZNICY, MIEDZYNARODOWY, czyInPost } from './konfiguracja.js';
 import { rozpoznaj } from './inpost.js';
 import * as sync from './sync.js';
 
@@ -22,7 +22,7 @@ const transportDomyslny = () => {
 const pusty = () => ({
   tryb: 'nowe', edytowane: '', data: '', typ: 'miejsce', przewoznik: 'InPost', koszyk: [], klientId: '', telefon: '', nazwa: '', email: '', uwagi: '',
   szukaj: '', grupa: '', paczkomat: '', adres: '', nrPrzesylki: '', kodNadania: '', transportTxt: '', realizuje: '', magazyn: '',
-  waluta: 'PLN', eurTxt: '', jezyk: '',
+  waluta: 'PLN', eurTxt: '', jezyk: '', oplacaOdbiorca: false, pobranieTxt: '',
   platnosci: [{ k: uuid(), forma: 'Przelew', kwotaTxt: '', zaplacone: false }],
 });
 
@@ -56,8 +56,10 @@ function cena(p) {
 const ilosc = p => liczba(p.iloscTxt ?? '1');
 const wartosc = p => zaokr(cena(p) * ilosc(p));
 const sumaProduktow = () => zaokr(s.koszyk.reduce((a, p) => a + (isFinite(wartosc(p)) ? wartosc(p) : 0), 0));
+/** Poczta Polska „przesyłkę opłaca odbiorca” – klient płaci za przesyłkę przy odbiorze, więc transportu nie ma na paragonie. */
+const odbiorcaPlaci = () => s.typ === 'wysylka' && s.przewoznik === 'Poczta Polska' && Boolean(s.oplacaOdbiorca);
 function kosztTransportu() {
-  if (s.typ !== 'wysylka') return 0;
+  if (s.typ !== 'wysylka' || odbiorcaPlaci()) return 0;
   const t = String(s.transportTxt ?? '').trim();
   const v = liczba(t === '' ? transportDomyslny() : t);
   return isFinite(v) ? zaokr(v) : NaN;
@@ -216,10 +218,13 @@ function htmlWysylki() {
     <label class="pole"><span class="etykieta">Adres dostawy (z krajem)</span>
       <textarea data-pole="adres" rows="3" autocomplete="off" placeholder="ulica i numer, kod, miejscowość, kraj">${esc(s.adres)}</textarea></label>
     <label class="pole"><span class="etykieta">Numer nadania / przesyłki</span>
-      <input data-pole="nrPrzesylki" autocomplete="off" autocapitalize="characters" value="${esc(s.nrPrzesylki)}" placeholder="np. RR123456789PL"></label>
-    <label class="pole"><span class="etykieta">Transport (pozycja na paragonie)</span>
+      <input data-pole="nrPrzesylki" autocomplete="off" autocapitalize="characters" value="${esc(s.nrPrzesylki)}" placeholder="np. RR123456789PL, PX1234567890"></label>
+    ${s.przewoznik === 'Poczta Polska' ? `<label class="przelacznik"><input type="checkbox" data-pole="oplacaOdbiorca" ${s.oplacaOdbiorca ? 'checked' : ''}> Przesyłkę opłaca odbiorca (płaci przy odbiorze – bez transportu na paragonie)</label>` : ''}
+    ${odbiorcaPlaci() ? '' : `<label class="pole"><span class="etykieta">Transport (pozycja na paragonie)</span>
       <input data-pole="transport" inputmode="decimal" autocomplete="off" value="${esc(s.transportTxt)}" placeholder="${esc(transportDomyslny())}">
-      ${!isFinite(t) ? '<span class="podpowiedz blad">Sprawdź kwotę transportu.</span>' : ''}</label>
+      ${!isFinite(t) ? '<span class="podpowiedz blad">Sprawdź kwotę transportu.</span>' : ''}</label>`}
+    ${s.platnosci.some(p => p.forma === POBRANIE) ? `<label class="pole"><span class="etykieta">Kwota pobrania wpisana w e-nadawcy (do sprawdzenia)</span>
+      <input data-pole="pobranie" inputmode="decimal" autocomplete="off" value="${esc(s.pobranieTxt)}" placeholder="np. 1560,00"></label>` : ''}
     <span class="etykieta">Kto wysyła</span>
     <div class="chipy">${OSOBY_WYSYLKI.map(o => `<button type="button" class="chip" data-akcja="realizuje" data-osoba="${esc(o)}" aria-pressed="${s.realizuje === o}">${esc(o)}</button>`).join('')}</div>
   </article>`;
@@ -254,11 +259,11 @@ function htmlPlatnosci() {
   const zapl = zaplaconoNaMiejscu(kw);
   const razem = suma();
   return `${kw.map((p, i) => `<div class="platnosc" data-k="${esc(p.k)}">
-      <div class="chipy male">${FORMY.map(([w, e]) => `<button type="button" class="chip" data-akcja="forma" data-forma="${esc(w)}" aria-pressed="${p.forma === w}">${esc(e)}</button>`).join('')}</div>
+      <div class="chipy male">${FORMY.filter(([w]) => w !== POBRANIE || s.typ === 'wysylka' || p.forma === POBRANIE).map(([w, e]) => `<button type="button" class="chip" data-akcja="forma" data-forma="${esc(w)}" aria-pressed="${p.forma === w}">${esc(e)}</button>`).join('')}</div>
       <div class="platnosc-dol">
         <label class="cena"><span>Kwota${p.auto ? ' (reszta)' : ''}</span>
           <input data-pole="kwota" inputmode="decimal" autocomplete="off" value="${esc(p.kwotaTxt)}" placeholder="${esc(liczbaNaTekst(p.kwota))}"></label>
-        ${ZAPLACONE_ZAWSZE.has(p.forma) ? '<span class="znacznik-ok">zapłacone</span>'
+        ${p.forma === POBRANIE ? '<span class="podpowiedz">klient płaci przy odbiorze</span>' : ZAPLACONE_ZAWSZE.has(p.forma) ? '<span class="znacznik-ok">zapłacone</span>'
           : `<label class="przelacznik"><input type="checkbox" data-pole="zaplacone" ${p.zaplacone ? 'checked' : ''}> zapłacone na miejscu (pokazał potwierdzenie)</label>`}
         ${kw.length > 1 ? `<button type="button" class="usun" data-akcja="usun-platnosc" aria-label="Usuń płatność">×</button>` : ''}
       </div>
@@ -371,6 +376,7 @@ export function render(arg) {
 function opisSumy() {
   if (s.typ !== 'wysylka') return '';
   const t = kosztTransportu();
+  if (odbiorcaPlaci()) return `produkty ${kwotaTxt(sumaProduktow())}, przesyłkę opłaca odbiorca`;
   return `produkty ${kwotaTxt(sumaProduktow())} + transport ${isFinite(t) ? kwotaTxt(t) : '?'}`;
 }
 function htmlPaska() {
@@ -440,7 +446,13 @@ async function wczytajZrzuty(pliki) {
     if (d.poczta) {
       s.przewoznik = 'Poczta Polska';
       s.paczkomat = ''; s.kodNadania = '';
-      znalezione.push('Poczta Polska' + (d.krajNazwa ? ` (${d.krajNazwa})` : ''));
+      znalezione.push('Poczta Polska' + (d.krajNazwa ? ` (${d.krajNazwa})` : '') + (d.usluga ? ` – ${d.usluga}` : ''));
+      if (d.oplacaOdbiorca) { s.oplacaOdbiorca = true; znalezione.push('przesyłkę opłaca odbiorca'); }
+      if (d.pobranie > 0) {
+        s.pobranieTxt = liczbaNaTekst(d.pobranie);
+        s.platnosci = [{ k: uuid(), forma: POBRANIE, kwotaTxt: '', zaplacone: false }];
+        znalezione.push(`za pobraniem ${kwotaTxt(d.pobranie)}`);
+      }
     }
     if (d.nazwa) { s.nazwa = d.nazwa; znalezione.push('odbiorca'); }
     if (d.telefon) { s.telefon = d.telefon; znalezione.push('telefon'); }
@@ -500,6 +512,8 @@ function wejscie(e) {
     }
   } else if (['email', 'uwagi', 'adres', 'nrPrzesylki', 'kodNadania'].includes(pole)) s[pole] = v;
   else if (pole === 'paczkomat') s.paczkomat = v.toUpperCase();
+  else if (pole === 'pobranie') s.pobranieTxt = v;
+  else if (pole === 'oplacaOdbiorca') { s.oplacaOdbiorca = e.target.checked; zachowaj(); render(); return; }
   else if (pole === 'transport') { s.transportTxt = v; $('#suma').textContent = kwotaTxt(suma()); $('#suma-opis').textContent = opisSumy(); odswiezPasek(); odswiezPlatnosci(); }
   else if (pole === 'kwota') { const p = platnoscZ(e.target); if (p) { p.kwotaTxt = v; odswiezPlatnosci(); } }
   else if (pole === 'eur') { s.eurTxt = v; const se = $('#suma-eur'); if (se) se.textContent = isFinite(sumaEur()) ? String(sumaEur()).replace('.', ',') + ' €' : '—'; }
@@ -672,6 +686,7 @@ function zaladujDoEdycji(id) {
     przewoznik: z.przewoznik || (/poczta/i.test(z.dostawa || '') ? 'Poczta Polska' : 'InPost'),
     paczkomat: !czyInPost(z.przewoznik) ? '' : paczkomat,
     adres: !czyInPost(z.przewoznik) ? String(z.adres_dostawy || '') : resztaAdresu.join(', '),
+    oplacaOdbiorca: z.oplaca_odbiorca === 'tak', pobranieTxt: (() => { const p = platnosci.find(x => x.forma === POBRANIE); return p ? liczbaNaTekst(num(p.kwota)) : ''; })(),
     waluta: z.waluta === 'EUR' ? 'EUR' : 'PLN', eurTxt: z.waluta === 'EUR' && z.suma_eur !== '' && z.suma_eur != null ? liczbaNaTekst(num(z.suma_eur)) : '', jezyk: z.jezyk || '', nrPrzesylki: z.nr_przesylki || '', kodNadania: z.kod_nadania || '', realizuje: z.realizuje || '', magazyn: z.magazyn ? symbolMagazynu(z.magazyn) : '', data: String(z.data || '').slice(0, 10),
     platnosci: platnosci.map((p, i) => ({ k: uuid(), forma: p.forma, kwotaTxt: i === platnosci.length - 1 ? '' : liczbaNaTekst(num(p.kwota)), zaplacone: Boolean(p.zaplacone) })),
   };
@@ -689,6 +704,10 @@ function sprawdz(kanal) {
   }
   if (s.typ === 'wysylka') {
     if (!isFinite(kosztTransportu()) || kosztTransportu() < 0) return 'Sprawdź kwotę transportu.';
+    const naPobranie = kwotyPlatnosci().filter(p => p.forma === POBRANIE).reduce((a, p) => a + p.kwota, 0);
+    if (naPobranie > 0 && String(s.pobranieTxt || '').trim() && Math.abs(liczba(s.pobranieTxt) - naPobranie) > 0.009) {
+      return `Kwota pobrania w e-nadawcy (${kwotaTxt(liczba(s.pobranieTxt))}) różni się od kwoty „za pobraniem” w zamówieniu (${kwotaTxt(zaokr(naPobranie))}). Popraw produkty lub kwotę – albo przesyłkę w e-nadawcy.`;
+    }
     if (czyInPost(s.przewoznik) && !s.paczkomat.trim() && !s.adres.trim()) return 'Wpisz paczkomat albo adres dostawy.';
     if (!czyInPost(s.przewoznik) && !s.adres.trim()) return 'Wpisz adres dostawy.';
   }
@@ -753,7 +772,7 @@ async function zapiszStan() {
       paczki.ZAMOWIENIA_POZ.push(wierszPoz(id, p));
     });
     const transport = kosztTransportu();
-    if (s.typ === 'wysylka') {
+    if (s.typ === 'wysylka' && !odbiorcaPlaci()) {
       const id = s.transPosId && istniejace.some(x => x.id === s.transPosId) ? s.transPosId : noweId();
       uzyteId.add(id);
       paczki.ZAMOWIENIA_POZ.push({ id, zamowienie_id: numer, symbol: SYMBOL_TRANSPORTU, nazwa: 'Transport', kategoria: 'Usługi', podkategoria: '',
@@ -775,10 +794,10 @@ async function zapiszStan() {
       typ: wysylka ? 'wysylka' : 'miejsce',
       forma_platnosci: formy.length > 1 ? 'Mieszana' : (formy[0] || kw[0].forma),
       platnosci: JSON.stringify(kw.map(p => ({ forma: p.forma, kwota: p.kwota, zaplacone: ZAPLACONE_ZAWSZE.has(p.forma) || Boolean(p.zaplacone) }))),
-      kw_gotowka: sumaFormy('Gotówka'), kw_blik: sumaFormy('BLIK'), kw_przelew: sumaFormy('Przelew'), kw_karta: sumaFormy('Karta'),
+      kw_gotowka: sumaFormy('Gotówka'), kw_blik: sumaFormy('BLIK'), kw_przelew: zaokr(sumaFormy('Przelew') + sumaFormy(POBRANIE)), kw_karta: sumaFormy('Karta'),
       zaplacono: zapl, suma_brutto: razem, wartosc_produktow: sumaProduktow(),
       dostawa_id: '', dostawa: wysylka ? (!czyInPost(s.przewoznik) ? s.przewoznik : (s.paczkomat.trim() ? 'Paczkomat ' : 'Kurier ') + (s.przewoznik || 'InPost')) : '',
-      przewoznik: wysylka ? s.przewoznik : '',
+      przewoznik: wysylka ? s.przewoznik : '', oplaca_odbiorca: odbiorcaPlaci() ? 'tak' : '',
       koszt_dostawy: wysylka ? transport : 0,
       adres_dostawy: wysylka ? (!czyInPost(s.przewoznik) ? s.adres.trim() : [s.paczkomat.trim(), s.adres.trim()].filter(Boolean).join(', ')) : '',
       waluta: s.waluta === 'EUR' ? 'EUR' : '', kurs: s.waluta === 'EUR' ? (stare?.waluta === 'EUR' && stare.kurs ? stare.kurs : kursEur() || '') : '', suma_eur: s.waluta === 'EUR' ? sumaEur() : '',
