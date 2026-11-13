@@ -9,6 +9,28 @@ import { telefonE164, klient } from './dane.js';
 export const linkSledzenia = (nr, przewoznik = 'InPost') => linkSledzeniaPrzewoznika(przewoznik, nr);
 
 const MAKS_POZYCJI = 8;
+
+/** Strona „Dane do płatności” z przyciskami „Kopiuj” (numer zamówienia, kwota, konto, BLIK). Dane są w części po „#”,
+ *  więc nie trafiają do żadnego serwera; strona działa bez logowania i bez internetu po stronie Stoiska. */
+const STRONA_PLATNOSCI = 'https://oneriver-stoisko.github.io/zaplata.html';
+export function linkPlatnosci(zam, kwota, eur, en) {
+  const { platnosc } = ustawienia();
+  const q = new URLSearchParams();
+  q.set('n', zam.id);
+  const k = Math.round(num(kwota) * 100) / 100;
+  if (k > 0) q.set('k', eur && Number.isInteger(k) ? String(k) : k.toFixed(2));
+  if (eur) {
+    q.set('w', 'EUR');
+    if (platnosc.odbiorcaEur || platnosc.odbiorca) q.set('o', platnosc.odbiorcaEur || platnosc.odbiorca);
+    if (platnosc.kontoEur) q.set('a', String(platnosc.kontoEur).replace(/\s+/g, ''));
+    if (platnosc.swift) q.set('s', String(platnosc.swift).trim());
+  } else {
+    if (platnosc.konto) { q.set('o', platnosc.odbiorca || ''); q.set('a', String(platnosc.konto).replace(/\s+/g, '')); }
+    if (platnosc.blik) q.set('b', String(platnosc.blik).replace(/\D/g, ''));
+  }
+  if (en) q.set('j', 'en');
+  return `${STRONA_PLATNOSCI}#${q.toString()}`;
+}
 const produkty = pozycje => pozycje.filter(p => !czyTransport(p.symbol));
 
 /** Płatności zamówienia: z kolumny „platnosci” (JSON), a dla starszych zamówień – z formy płatności i statusu. */
@@ -70,12 +92,12 @@ function trescEN(zam, pozycje) {
     if (platnosc.odbiorcaEur || platnosc.odbiorca) linie.push(`Recipient: ${platnosc.odbiorcaEur || platnosc.odbiorca}`);
     if (platnosc.kontoEur) linie.push(`IBAN: ${platnosc.kontoEur}`);
     if (platnosc.swift) linie.push(`BIC/SWIFT: ${platnosc.swift}`);
-    linie.push('Please put the order number in the transfer title:', zam.id);
+    linie.push('Please put the order number in the transfer title:', zam.id, '', 'Copy the order number and payment details with one tap:', linkPlatnosci(zam, zam.suma_eur, true, true));
   } else {
     linie.push(`To pay: ${kwotaTxt(Math.round(doZaplaty * 100) / 100)}`);
     if (platnosc.konto) linie.push(`• bank transfer: ${platnosc.odbiorca}, account ${platnosc.konto}`);
     if (platnosc.blik) linie.push(`• BLIK (Polish mobile payment) to: ${platnosc.blik}`);
-    linie.push('Please put the order number in the transfer title:', zam.id);
+    linie.push('Please put the order number in the transfer title:', zam.id, '', 'Copy the order number and payment details with one tap:', linkPlatnosci(zam, doZaplaty, false, true));
   }
   linie.push('', 'Thank you! oneriver.pl');
   return linie.join('\n');
@@ -116,13 +138,12 @@ export function trescWiadomosci(zam, pozycje) {
     if (platnosc.odbiorcaEur || platnosc.odbiorca) linie.push(`Odbiorca: ${platnosc.odbiorcaEur || platnosc.odbiorca}`);
     if (platnosc.kontoEur) linie.push(`IBAN: ${platnosc.kontoEur}`);
     if (platnosc.swift) linie.push(`BIC/SWIFT: ${platnosc.swift}`);
-    linie.push('Prosimy wpisać w tytule przelewu numer zamówienia:', zam.id);
+    linie.push('Prosimy wpisać w tytule przelewu numer zamówienia:', zam.id, '', 'Numer zamówienia i dane do przelewu skopiujesz jednym dotknięciem:', linkPlatnosci(zam, zam.suma_eur, true, false));
   } else if (doZaplaty > 0.005) {
     linie.push(`Do zapłaty: ${kwotaTxt(Math.round(doZaplaty * 100) / 100)}`);
     if (platnosc.konto) linie.push(`• przelew: ${platnosc.odbiorca}, nr konta ${platnosc.konto}`);
     if (platnosc.blik) linie.push(`• BLIK na telefon: ${platnosc.blik}`);
-    // numer w osobnej linii – klient kopiuje go jednym przytrzymaniem
-    linie.push('Prosimy wpisać w tytule przelewu numer zamówienia:', zam.id);
+    linie.push('Prosimy wpisać w tytule przelewu numer zamówienia:', zam.id, '', 'Numer zamówienia i dane do płatności skopiujesz jednym dotknięciem:', linkPlatnosci(zam, doZaplaty, false, false));
   }
   linie.push('', 'Dziękujemy! oneriver.pl');
   return linie.join('\n');

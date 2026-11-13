@@ -1,6 +1,6 @@
 // Service worker stoiska: trzyma pliki aplikacji w pamięci urządzenia, żeby działała bez internetu.
 // Przy każdej nowej wersji zmień WERSJA (i WERSJA w js/konfiguracja.js).
-const WERSJA = 'or-stoisko-0.11.0';
+const WERSJA = 'or-stoisko-0.11.1';
 const OCR = 'or-stoisko-ocr';   // pliki rozpoznawania tekstu – pobierane przy pierwszym użyciu, potem z pamięci
 const PLIKI = [
   './', './index.html', './css/stoisko.css', './manifest.webmanifest',
@@ -52,6 +52,8 @@ self.addEventListener('fetch', e => {
     }));
     return;
   }
+  // strona „Dane do płatności” dla klientów – zawsze z sieci, nie podmieniamy jej na Stoisko
+  if (req.mode === 'navigate' && /\/zaplata\.html$/.test(new URL(req.url).pathname)) return;
   if (req.mode === 'navigate') {
     e.respondWith(caches.open(WERSJA).then(c => c.match('./index.html')).then(z => z || fetch(req)));
     return;

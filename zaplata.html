@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ONE RIVER – dane do płatności</title>
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  :root { --tlo: #F4F1EA; --karta: #FFFFFF; --tekst: #15201E; --szary: #5B6A66; --linia: #DDD6C8; --rzeka: #155E5B; --na-rzece: #FFFFFF; --ok: #1E6B35; }
+  @media (prefers-color-scheme: dark) {
+    :root { --tlo: #0F1716; --karta: #182321; --tekst: #E7EEEB; --szary: #A9B7B3; --linia: #33433F; --rzeka: #1D7470; --na-rzece: #FFFFFF; --ok: #7FD08F; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--tlo); color: var(--tekst); font: 17px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 520px; margin: 0 auto; padding: 20px 16px 40px; }
+  .marka { font-weight: 800; letter-spacing: .14em; color: var(--rzeka); font-size: 15px; margin: 4px 0 2px; }
+  h1 { font-size: 24px; margin: 0 0 4px; line-height: 1.2; }
+  .opis { color: var(--szary); margin: 0 0 18px; }
+  .pole { background: var(--karta); border: 1px solid var(--linia); border-radius: 14px; padding: 12px 12px 12px 16px; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 12px; }
+  .pole div { flex: 1; min-width: 0; }
+  .etykieta { color: var(--szary); font-size: 14px; }
+  .wartosc { font-size: 19px; font-weight: 700; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  .pole.glowne { border: 2px solid var(--rzeka); }
+  .pole.glowne .wartosc { font-size: 24px; }
+  button { flex: none; border: 0; border-radius: 10px; background: var(--rzeka); color: var(--na-rzece); font: 700 16px/1 inherit; font-family: inherit;
+    padding: 0 16px; min-height: 46px; min-width: 96px; cursor: pointer; }
+  button.ok { background: var(--ok); color: var(--karta); }
+  h2 { font-size: 16px; margin: 22px 0 8px; color: var(--szary); font-weight: 600; }
+  .stopka { margin-top: 26px; color: var(--szary); font-size: 14px; text-align: center; }
+  .stopka a { color: var(--rzeka); }
+  .brak { padding: 30px 0; color: var(--szary); }
+</style>
+</head>
+<body>
+<main id="m"></main>
+<script>
+window.addEventListener('hashchange', function () { location.reload(); });
+(function () {
+  var p = new URLSearchParams(location.hash.replace(/^#/, ''));
+  var en = p.get('j') === 'en';
+  var T = en
+    ? { tytul: 'Payment details', opis: 'Tap “Copy” and paste into your banking app.', nr: 'Order number – transfer title', kw: 'Amount', od: 'Recipient', konto: 'Account number', iban: 'IBAN', swift: 'BIC / SWIFT', blik: 'BLIK – phone number', kopiuj: 'Copy', skop: 'Copied ✓', brak: 'Missing payment details – please contact us.', przelew: 'Bank transfer', inne: 'BLIK (Polish mobile payment)' }
+    : { tytul: 'Dane do płatności', opis: 'Dotknij „Kopiuj” i wklej w aplikacji banku.', nr: 'Numer zamówienia – tytuł przelewu', kw: 'Kwota', od: 'Odbiorca', konto: 'Numer konta', iban: 'IBAN', swift: 'BIC / SWIFT', blik: 'BLIK na telefon', kopiuj: 'Kopiuj', skop: 'Skopiowano ✓', brak: 'Brak danych do płatności – skontaktuj się z nami.', przelew: 'Przelew', inne: 'BLIK' };
+  document.documentElement.lang = en ? 'en' : 'pl';
+  document.title = 'ONE RIVER – ' + T.tytul;
+  var esc = function (t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var dane = [];
+  var pole = function (etykieta, pokaz, kopia, glowne) {
+    if (!pokaz) return '';
+    dane.push(kopia);
+    return '<div class="pole' + (glowne ? ' glowne' : '') + '"><div><div class="etykieta">' + esc(etykieta) + '</div><div class="wartosc">' + esc(pokaz) + '</div></div>'
+      + '<button type="button" data-i="' + (dane.length - 1) + '">' + esc(T.kopiuj) + '</button></div>';
+  };
+  var grupuj = function (k) { var c = k.replace(/\s+/g, ''); return /^[A-Z]{2}/.test(c) ? c.replace(/(.{4})(?=.)/g, '$1 ') : c.replace(/^(\d{2})(\d+)$/, function (_, a, b) { return a + ' ' + b.replace(/(\d{4})(?=\d)/g, '$1 '); }); };
+  var n = p.get('n') || '', k = p.get('k') || '', w = p.get('w') || 'PLN';
+  var kwotaPokaz = k ? (w === 'EUR' ? (en ? '€' + k : k.replace('.', ',') + ' €') : k.replace('.', ',') + ' zł') : '';
+  var konto = p.get('a') || '', blik = p.get('b') || '';
+  var html = '<p class="marka">ONE RIVER</p><h1>' + esc(T.tytul) + '</h1><p class="opis">' + esc(T.opis) + '</p>';
+  if (!n) { document.getElementById('m').innerHTML = html + '<p class="brak">' + esc(T.brak) + '</p>'; return; }
+  html += pole(T.nr, n, n, true) + pole(T.kw, kwotaPokaz, k.replace('.', en ? '.' : ','));
+  if (konto) html += '<h2>' + esc(T.przelew) + '</h2>' + pole(T.od, p.get('o'), p.get('o')) + pole(/^[A-Z]{2}/.test(konto) ? T.iban : T.konto, grupuj(konto), konto.replace(/\s+/g, '')) + pole(T.swift, p.get('s'), p.get('s'));
+  if (blik) html += '<h2>' + esc(T.inne) + '</h2>' + pole(T.blik, blik.replace(/^(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3'), blik);
+  html += '<p class="stopka">' + (en ? 'Thank you!' : 'Dziękujemy!') + ' · <a href="https://oneriver.pl">oneriver.pl</a></p>';
+  document.getElementById('m').innerHTML = html;
+
+  var kopiuj = function (t) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(t);
+    return new Promise(function (ok, nie) {
+      var ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, t.length);
+      try { document.execCommand('copy') ? ok() : nie(); } catch (e) { nie(e); } finally { ta.remove(); }
+    });
+  };
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-i]'); if (!b) return;
+    kopiuj(dane[+b.dataset.i]).then(function () {
+      document.querySelectorAll('button.ok').forEach(function (x) { x.classList.remove('ok'); x.textContent = T.kopiuj; });
+      b.classList.add('ok'); b.textContent = T.skop;
+    }, function () {
+      var r = document.createRange(); r.selectNodeContents(b.previousElementSibling.querySelector('.wartosc'));
+      var s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    });
+  });
+})();
+</script>
+</body>
+</html>
