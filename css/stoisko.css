@@ -632,3 +632,15 @@ body.prosty .gora .sync { margin-left: auto; }
   body:not(.prosty) .gora .nawigacja { flex-wrap: nowrap; justify-content: space-between; gap: 2px; flex: 1 1 100%; min-width: 0; }
   body:not(.prosty) .nawigacja a { padding: 7px 5px; font-size: 13.5px; letter-spacing: -0.01em; }
 }
+
+/* ───────── Do wysłania: zakładki, przyjęcie, cofnięcie, przypomnienie ───────── */
+.wy-zakladki { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 4px 0 14px; padding: 4px; border-radius: 14px; background: var(--papier-2); }
+.wy-zakladki button { min-height: 48px; border: 0; border-radius: 10px; background: transparent; color: var(--atrament); font-size: 17px; font-weight: 700; cursor: pointer; }
+.wy-zakladki button[aria-selected="true"] { background: var(--papier); box-shadow: 0 1px 3px rgba(0,0,0,.15); color: var(--tekst-akcent); }
+.wysylki-ekran .chipy.male { margin-bottom: 12px; align-items: center; }
+.wysylki-ekran .etykieta-mag { color: var(--szary); font-size: 14.5px; }
+.wy-kto { margin: 0; color: var(--szary); }
+.wy-przyjete { margin: 0; font-weight: 700; color: var(--tekst-ok); }
+.wy-przyjmij { background: var(--tlo-info); color: var(--na-info); border-color: var(--tlo-info); }
+.wy-cofnij, .wy-przypomnij { min-height: 46px; border-radius: 12px; border: 1.5px solid var(--linia); background: var(--papier); color: var(--atrament); font-size: 16px; font-weight: 700; cursor: pointer; }
+.wy-przypomnij { border-color: var(--ramka-akcent); }

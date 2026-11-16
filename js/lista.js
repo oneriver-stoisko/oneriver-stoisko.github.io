@@ -1,5 +1,6 @@
 // Ekran „Zamówienia”: lista z filtrem (dziś / to urządzenie / wszystkie) i wyszukiwaniem.
 
+import { ileDoWyslaniaWszystkich } from './wysylki.js';
 import { $, $$, esc, kwotaTxt, num, dataLok, dataKrotko, normalizuj, odmiana } from './util.js';
 import { dane, klient, telefonCzytelny } from './dane.js';
 import { ustawienia } from './api.js';
@@ -87,6 +88,7 @@ function render() {
   <section class="ekran">
     <header class="naglowek-zam"><h1>Zamówienia</h1><span class="naglowek-akcje">
       <button type="button" class="drugorzedny maly" data-akcja="epp-tryb">${stan.wybor ? 'Zakończ wybieranie' : 'Eksport do Subiektu'}</button>
+      <a class="przycisk drugorzedny maly" href="#wysylki">📦 Do wysłania${ileDoWyslaniaWszystkich() ? ` (${ileDoWyslaniaWszystkich()})` : ''}</a>
       <a class="przycisk" href="#nowe">+ Nowe</a></span></header>
     <div id="pasek-epp">${htmlPaskaEpp()}</div>
     <div class="chipy male filtry">${FILTRY.filter(([w]) => w !== 'nowe' || nowe).map(([w, e]) => `<button type="button" class="chip" data-filtr="${w}" aria-pressed="${stan.filtr === w}">${esc(e)}${w === 'nowe' && nowe ? ` (${nowe})` : ''}</button>`).join('')}</div>
