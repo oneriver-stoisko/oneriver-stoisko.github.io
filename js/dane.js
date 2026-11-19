@@ -11,7 +11,7 @@ export const dane = {
   zamowienia: [], pozycje: [], klienci: [], cennik: [], produkty: [], grupy: [], magazyny: [],
   wysylki: [], grupyCenowe: [], cenySpecjalne: [], zKatalogu: false,
   poziomy: [], cenyPoziomow: new Map(), ustawienia: new Map(), stanyZDnia: '',
-  instrukcje: [], zapotrzebowania: [], wydarzenia: [], listaMailingowa: [], zapisyWydarzen: [],
+  instrukcje: [], zapotrzebowania: [], inwentaryzacje: [], wydarzenia: [], listaMailingowa: [], zapisyWydarzen: [],
 };
 
 export const PREFIKS_INSTRUKCJI = 'instr:';
@@ -55,7 +55,10 @@ export async function wczytaj() {
       opis: t.opis || '', pokaz: t.pokaz !== false, wydarzenie_id: t.wydarzenie_id || '' };
   }).sort((a, b) => String(a.od || '9').localeCompare(String(b.od || '9')));
   dane.listaMailingowa = lm.sort((a, b) => String(b.utworzono || b.data || '').localeCompare(String(a.utworzono || a.data || '')));
-  dane.zapotrzebowania = zp.sort((a, b) => String(b.utworzono || b.data || '').localeCompare(String(a.utworzono || a.data || '')));
+  const wgDaty = (a, b) => String(b.utworzono || b.data || '').localeCompare(String(a.utworzono || a.data || ''));
+  // karta ZAPOTRZEBOWANIA trzyma też inwentaryzacje (typ „inwentaryzacja”) – Grażynka może do niej zapisywać
+  dane.inwentaryzacje = zp.filter(z => z.typ === 'inwentaryzacja').sort(wgDaty);
+  dane.zapotrzebowania = zp.filter(z => z.typ !== 'inwentaryzacja').sort(wgDaty);
   dane.zamowienia = z.sort((a, b) => String(b.data).localeCompare(String(a.data)) || String(b.utworzono || '').localeCompare(String(a.utworzono || '')) || numerZam(b.id) - numerZam(a.id));
   dane.pozycje = p;
   dane.klienci = k.sort((a, b) => String(a.nazwa || '').localeCompare(String(b.nazwa || ''), 'pl'));

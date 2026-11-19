@@ -145,7 +145,8 @@ export function trescEppMM(firma, dokumenty, teraz = new Date(), stronaKodowa = 
     const rok = new Date(d.data).getFullYear();
     const pelny = d.pelnyNumer || `${d.numer}/${rok}`;
     const poz = d.pozycje.map((p, i) => ({ ...p, lp: i + 1, typNr: TYP_TOWARU[p.typ] || 1 }));
-    L.push('[NAGLOWEK]', linia([T('MMW'), 1, 0, d.numer, '', '', T(pelny), '', '', '', T(String(d.magazynDo || '').slice(0, 3)),
+    const typ = d.typ || 'MMW';   // MMW – przesunięcie; PW / RW – przychód / rozchód wewnętrzny (np. różnice z inwentaryzacji)
+    L.push('[NAGLOWEK]', linia([T(typ), 1, 0, d.numer, '', '', T(pelny), '', '', '', typ === 'MMW' ? T(String(d.magazynDo || '').slice(0, 3)) : '',
       '', '', '', '', '', '', '', T(d.kategoria || ''), T(d.podtytul || ''), T(d.miejsce || 'Warszawa'), Dzien(d.data), Dzien(d.data), '', poz.length, 1, T('Detaliczna'),
       K(0), K(0), K(0), K(0), '', K(0), '', '', K(0), K(0), 0, 0, 1, 0, T(';' + (d.wystawca || '')),
       T(d.odbiorca || ''), '', K(0), K(0), T('PLN'), K(1), T(d.uwagi || ''), '', '', '', 0, 0, 0, '', K(0), '', K(0), T('Polska'), T('PL'), 0]), '');

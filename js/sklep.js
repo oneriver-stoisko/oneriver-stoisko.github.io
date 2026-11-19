@@ -56,7 +56,7 @@ function render() {
       <h2>Grażynka</h2>
       ${(() => { const n = dane.zapotrzebowania.filter(z => (z.status || 'nowe') === 'nowe').length; const s = dane.zapotrzebowania.filter(z => z.status === 'sprawdzone').length;
         return `<p>${n ? `<b>${n} ${n === 1 ? 'nowe zapotrzebowanie' : 'nowe zapotrzebowania'}</b>. ` : 'Brak nowych zapotrzebowań. '}${s ? `<b>${s} do zatwierdzenia</b> (policzone przez Grażynkę). ` : ''}Instrukcji: ${dane.instrukcje.length}.</p>`; })()}
-      <div class="przyciski"><a class="przycisk" href="#potrzebuje">Zapotrzebowanie i przesunięcia (MM)</a><a class="przycisk drugorzedny" href="#instrukcje">Instrukcje dla Grażynki</a></div>
+      <div class="przyciski"><a class="przycisk" href="#potrzebuje">Zapotrzebowanie i przesunięcia (MM)</a><a class="przycisk drugorzedny" href="#inwentaryzacja">Inwentaryzacja${dane.inwentaryzacje.some(z => z.status === 'policzone') ? ' (do zatwierdzenia)' : ''}</a><a class="przycisk drugorzedny" href="#instrukcje">Instrukcje dla Grażynki</a></div>
     </article>
 
     <article class="panel">

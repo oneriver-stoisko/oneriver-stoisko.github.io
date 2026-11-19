@@ -16,6 +16,7 @@ import { ekran as ekranWysylek, ileDoWyslania } from './wysylki.js';
 import { ekran as ekranInstrukcji } from './instrukcje.js';
 import { ekran as ekranPotrzeb, ileNowychZapotrzebowan, ileDoSprawdzenia } from './potrzebuje.js';
 import { ekran as ekranMailingu } from './mailing.js';
+import { ekran as ekranInwentaryzacji, ileInwentaryzacji } from './inwentaryzacja.js';
 import { ustawZnaczek, odswiezCichutko } from './powiadomienia.js';
 import { ileDoPotwierdzenia } from './lista.js';
 import { ADRES_STOISKA } from './konfiguracja.js';
@@ -35,8 +36,9 @@ const TRASY = {
   potrzebuje: [ekranPotrzeb, 'potrzebuje', 'Potrzebuję'],
   instrukcje: [ekranInstrukcji, 'instrukcje', 'Instrukcje'],
   mailing: [ekranMailingu, 'mailing', 'Lista mailingowa'],
+  inwentaryzacja: [ekranInwentaryzacji, 'inwentaryzacja', 'Inwentaryzacja'],
 };
-const TRASY_PROSTE = ['prosty', 'wysylki', 'potrzebuje', 'instrukcje', 'ustawienia'];
+const TRASY_PROSTE = ['prosty', 'wysylki', 'potrzebuje', 'inwentaryzacja', 'instrukcje', 'ustawienia'];
 
 let aktywny = null;
 window.addEventListener('or-zmiana-roli', () => { location.hash = trybProsty() ? '#prosty' : '#nowe'; render(); });
@@ -70,14 +72,17 @@ function render() {
   const licznik = $('.nawigacja [data-widok="lista"] .licznik');
   licznik.textContent = n || '';
   licznik.hidden = !n;
-  const nz = ileNowychZapotrzebowan();
+  const nz = ileNowychZapotrzebowan() + (trybProsty() ? 0 : ileInwentaryzacji());
   const lz = $('.nawigacja [data-widok="sklep"] .licznik');
   if (lz) { lz.textContent = nz || ''; lz.hidden = !nz; }
   const ns = ileDoSprawdzenia();
   const lp = $('.nawigacja [data-widok="potrzebuje"] .licznik');
   if (lp) { lp.textContent = ns || ''; lp.hidden = !ns; }
   // znaczek na ikonie aplikacji (Windows, macOS, iPhone; na Androidzie kropkę daje powiadomienie)
-  ustawZnaczek(trybProsty() ? nw + ns : n + nz);
+  const ni = trybProsty() ? ileInwentaryzacji() : 0;
+  const li = $('.nawigacja [data-widok="inwentaryzacja"] .licznik');
+  if (li) { li.textContent = ni || ''; li.hidden = !ni; }
+  ustawZnaczek(trybProsty() ? nw + ns + ni : n + nz);
   ekran.render(arg);
   document.title = `${tytul} · One River Stoisko`;
 }

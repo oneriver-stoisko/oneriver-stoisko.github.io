@@ -541,13 +541,13 @@ body.prosty .nawigacja a.tylko-prosty { font-size: 18px; }
 
 /* Nawigacja w trybie prostym – 4 zakładki mieszczą się na telefonie */
 body.prosty .gora { row-gap: 6px; }
-body.prosty .gora .nawigacja { order: 3; flex: 1 1 100%; min-width: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; }
+body.prosty .gora .nawigacja { order: 3; flex: 1 1 100%; min-width: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; }
 body.prosty .nawigacja a[data-widok="ustawienia"] { display: none !important; }
 body.prosty .nawigacja a.tylko-prosty { flex-wrap: wrap; gap: 0 4px; letter-spacing: -0.01em; }
 body.prosty .nawigacja a.tylko-prosty { justify-content: center; text-align: center; line-height: 1.15; padding: 6px 4px; font-size: 16px; min-height: 48px; border-radius: 14px; }
 body.prosty .nawigacja a[data-widok="ustawienia"] { padding: 6px 10px; justify-content: center; border-radius: 14px; }
 body.prosty .gora .sync { margin-left: auto; }
-@media (max-width: 560px) { body.prosty .marka span { display: none; } body.prosty .nawigacja a.tylko-prosty { font-size: 14.5px; padding: 6px 2px; } }
+@media (max-width: 560px) { body.prosty .marka span { display: none; } body.prosty .nawigacja a.tylko-prosty { font-size: 13.5px; padding: 6px 1px; } }
 @media (max-width: 360px) { body.prosty .nawigacja a.tylko-prosty { font-size: 13px; } }
 .in-przyciski { margin: -4px 0 6px 8px; }
 
@@ -672,3 +672,47 @@ body.prosty .gora .sync { margin-left: auto; }
 .mm-wynik { width: 100%; display: grid; gap: 2px; text-align: left; padding: 10px 12px; border: 1px solid var(--linia); border-radius: 10px; background: var(--papier); color: var(--atrament); cursor: pointer; }
 .mm-wynik small { color: var(--szary); }
 .mm-zapis { flex-wrap: wrap; }
+
+/* ───────── inwentaryzacja ───────── */
+.inw-pasek { background: var(--papier); border: 1px solid var(--linia); border-radius: 14px; padding: 10px 14px; margin-bottom: 10px; }
+.inw-pasek small { color: var(--szary); }
+.inw-postep { height: 10px; border-radius: 6px; background: var(--linia); overflow: hidden; margin: 6px 0; }
+.inw-postep i { display: block; height: 100%; background: var(--przycisk-glowny, var(--rzeka)); }
+.pr-kat small { font-weight: 400; opacity: .8; }
+.inw-produkty { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 8px; }
+.inw-produkt { background: var(--papier); border: 1px solid var(--linia); border-radius: 14px; padding: 10px 12px; }
+.inw-p-nazwa { font-size: 17px; }
+.inw-warianty { list-style: none; padding: 0; margin: 4px 0 0; }
+.inw-war { padding: 8px 0; border-top: 1px dashed var(--linia); display: grid; gap: 6px; }
+.inw-war:first-child { border-top: 0; }
+.inw-w-gora { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.inw-w-nazwa { font-weight: 700; font-size: 16px; }
+.inw-powinno { color: var(--szary); font-size: 15px; white-space: nowrap; }
+.inw-w-dol { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.inw-zgadza { min-height: 44px; padding: 0 14px; border-radius: 22px; border: 2px solid var(--wplyw, #1E6B35); background: var(--papier); color: var(--tekst-ok); font-weight: 800; font-size: 16px; cursor: pointer; }
+.inw-licz { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.inw-pole { width: 64px; min-height: 44px; text-align: center; font-size: 20px; font-weight: 800; border: 1.5px solid var(--linia); border-radius: 10px; background: var(--papier); color: var(--atrament); }
+.inw-wynik { font-weight: 800; font-size: 15px; padding: 3px 9px; border-radius: 8px; }
+.inw-wynik.ok { background: var(--tlo-ok); color: var(--na-ok); }
+.inw-wynik.minus { background: var(--tlo-blad); color: var(--na-blad); }
+.inw-wynik.plus { background: var(--tlo-uwaga); color: var(--na-uwaga); }
+.inw-war.inaczej .inw-pole { border-color: var(--ramka-blad, #b3372c); }
+.inw-extra { margin: 14px 0; display: grid; gap: 8px; }
+.inw-podsum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
+.inw-podsum div { background: var(--papier); border: 1px solid var(--linia); border-radius: 12px; padding: 8px; text-align: center; font-size: 13.5px; color: var(--szary); }
+.inw-podsum b { display: block; font-size: 22px; color: var(--atrament); }
+.inw-uwaga { background: var(--tlo-uwaga); color: var(--na-uwaga); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+.inw-uwaga.ok { background: var(--tlo-ok); color: var(--na-ok); }
+.inw-lista-roz { list-style: none; padding: 0; margin: 0 0 12px; background: var(--papier); border: 1px solid var(--linia); border-radius: 14px; }
+.inw-lista-roz li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--linia); }
+.inw-lista-roz li:first-child { border-top: 0; }
+.inw-lista-roz small { display: block; color: var(--szary); }
+.inw-akcje { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.maly-pr { min-height: 40px; padding: 0 10px; font-size: 14.5px; }
+.inw-tabela-wrap { overflow-x: auto; }
+.inw-tabela td:not(:first-child), .inw-tabela th:not(:first-child) { text-align: right; white-space: nowrap; }
+.inw-tabela tr.inw-minus td { background: var(--tlo-blad); color: var(--na-blad); }
+.inw-tabela tr.inw-plus td { background: var(--tlo-uwaga); color: var(--na-uwaga); }
+.inw-tabela tr.inw-suma td { background: var(--papier-2); }
+.inw-licz .inw-pole { width: 68px; flex: none; padding: 4px; }
+.inw-w-dol .inw-wynik, .inw-w-dol .inw-zgadza { flex: none; }
