@@ -44,6 +44,7 @@ function htmlEdycji(z, poz, tel, mail) {
           <b class="poz-wartosc">${esc(kwotaTxt(wartoscEd(p)))}</b>
         </div></li>`).join('')}</ul>
       ${z.kraj && z.kraj !== 'PL' || (z.jezyk_formularza && z.jezyk_formularza !== 'pl') || z.waluta === 'EUR' ? `<p class="pasek-info">🌍 Klient zagraniczny${z.kraj && z.kraj !== 'PL' ? ` · kraj: ${esc(z.kraj)}` : ''}${z.jezyk_formularza ? ` · formularz: ${esc(String(z.jezyk_formularza).toUpperCase())}` : ''}${z.waluta === 'EUR' ? ` · płaci w euro (${esc(String(z.suma_eur))} € wg formularza)` : ''}. Wiadomość pójdzie po angielsku.</p>` : ''}
+      ${z.koszt_do_ustalenia === 'tak' && !z.dostawa_id ? `<p class="pasek-info">📦 Klient nie miał metody dostawy do swojego kraju – wyceń wysyłkę na adres: <b>${esc(z.adres_dostawy || '')}</b>${z.uwagi_kuriera ? ` (${esc(z.uwagi_kuriera)})` : ''}. Wpisz koszt i potwierdź – klient dostanie wiadomość z kosztem dostawy i kwotą do zapłaty.</p>` : ''}
       ${z.dostawa ? `<label class="pole"><span class="etykieta">Koszt dostawy – ${esc(z.dostawa)}${z.koszt_do_ustalenia === 'tak' ? ' <b class="do-ustalenia">– DO USTALENIA, wpisz kwotę</b>' : ''}</span>
         <input data-ed="koszt" inputmode="decimal" value="${esc(edycja.kosztTxt)}" placeholder="${esc(z.koszt_do_ustalenia === 'tak' ? 'np. 18,99' : liczbaNaTekst(num(z.koszt_dostawy)))}"></label>` : ''}
       <span class="etykieta">Płatność</span>
@@ -172,7 +173,7 @@ function render(arg) {
             <div><dt>Data</dt><dd>${esc(dataKrotko(z.data))}</dd></div>
             <div><dt>Klient</dt><dd>${k ? `<a href="#klient/${encodeURIComponent(k.id)}">${esc([k.nazwa, telefonCzytelny(k.telefon), k.email].filter(Boolean).join(' · '))}</a>` : '—'}</dd></div>
             <div><dt>Płatność</dt><dd>${platnosciZamowienia(z).map(p => `${esc(p.forma)} ${esc(kwotaTxt(p.kwota))} – ${p.zaplacone ? 'zapłacone' : '<b>czeka</b>'}`).join('<br>')}</dd></div>
-            ${z.dostawa ? `<div><dt>Dostawa</dt><dd>${esc(z.dostawa)}${z.adres_dostawy ? '<br>' + esc(z.adres_dostawy) : ''}${z.nr_przesylki ? `<br><small>nr przesyłki ${esc(z.nr_przesylki)}</small>` : ''}${z.wyslano ? `<br><small>wysłano ${esc(z.wyslano)}${z.realizuje ? ' (' + esc(z.realizuje) + ')' : ''}</small>` : ''}${z.zdjecie_wysylki ? ` · <a href="${esc(z.zdjecie_wysylki)}" target="_blank" rel="noopener">zdjęcie paczki</a>` : ''}</dd></div>` : ''}
+            ${z.dostawa ? `<div><dt>Dostawa</dt><dd>${esc(z.dostawa)}${z.adres_dostawy ? '<br>' + esc(z.adres_dostawy) : ''}${z.uwagi_kuriera ? `<br><small>uwagi dla kuriera: ${esc(z.uwagi_kuriera)}</small>` : ''}${z.nr_przesylki ? `<br><small>nr przesyłki ${esc(z.nr_przesylki)}</small>` : ''}${z.wyslano ? `<br><small>wysłano ${esc(z.wyslano)}${z.realizuje ? ' (' + esc(z.realizuje) + ')' : ''}</small>` : ''}${z.zdjecie_wysylki ? ` · <a href="${esc(z.zdjecie_wysylki)}" target="_blank" rel="noopener">zdjęcie paczki</a>` : ''}</dd></div>` : ''}
           </dl>
           ${z.dostawa && !anulowane && !z.nr_przesylki && czyInPost(z.przewoznik) ? htmlInpost(z, k) : ''}
           ${z.nr_przesylki && !anulowane ? htmlPrzesylki(z) : ''}

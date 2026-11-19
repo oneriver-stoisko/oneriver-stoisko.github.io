@@ -24,6 +24,7 @@ const s = {
   oferta: null, produkty: [], krok: 'produkty', kategoria: '', szukaj: '', otwarty: '', ile: NA_STRONE,
   koszyk: {},                      // symbol → ilość
   kod: '', dostawa: '', adres: '', punkt: null, forma: 'Przelew', kraj: '', krajNazwa: '',
+  adresPola: { ulica: '', nr: '', lokal: '', kod: '', miasto: '', uwagi: '', punkt: '' },   // kurier, poczta, zagranica
   jezyk: '', waluta: '',
   dane: { nazwa: '', telefon: '', email: '', uwagi: '' },
   wyslane: null, wysylam: false,
@@ -50,12 +51,13 @@ function wczytajPamiec() {
   try {
     const p = JSON.parse(localStorage.getItem(PAMIEC)) || {};
     ['koszyk', 'kod', 'dostawa', 'adres', 'punkt', 'forma', 'kraj', 'krajNazwa', 'jezyk', 'waluta'].forEach(k => { if (p[k] !== undefined && p[k] !== null) s[k] = p[k]; });
+    s.adresPola = { ...s.adresPola, ...(p.adresPola || {}) };
     s.dane = { ...s.dane, ...(p.dane || {}) };
   } catch { /* pusto */ }
 }
 function zachowaj() {
-  const { koszyk, kod, dostawa, adres, punkt, forma, kraj, krajNazwa, jezyk, waluta, dane } = s;
-  try { localStorage.setItem(PAMIEC, JSON.stringify({ koszyk, kod, dostawa, adres, punkt, forma, kraj, krajNazwa, jezyk, waluta, dane })); } catch { /* bez znaczenia */ }
+  const { koszyk, kod, dostawa, adres, punkt, forma, kraj, krajNazwa, jezyk, waluta, dane, adresPola } = s;
+  try { localStorage.setItem(PAMIEC, JSON.stringify({ koszyk, kod, dostawa, adres, punkt, forma, kraj, krajNazwa, jezyk, waluta, dane, adresPola })); } catch { /* bez znaczenia */ }
 }
 
 // ───────────────────────── API ─────────────────────────
@@ -109,7 +111,12 @@ async function wczytajOferte() {
     if (!s.dane.nazwa) s.dane.nazwa = o.klient.nazwa || '';
     if (!s.dane.telefon) s.dane.telefon = o.klient.telefon || '';
     if (!s.dane.email) s.dane.email = o.klient.email || '';
-    if (!s.adres && o.klient.adres) s.adres = o.klient.adres;
+    const ap = o.klient.adres_pola || {};
+    if (!s.adresPola.ulica && ap.ulica) s.adresPola = { ...s.adresPola, ulica: ap.ulica, nr: ap.nr, lokal: ap.lokal, kod: ap.kod, miasto: ap.miasto };
+    if (!s.kraj && ap.kraj) s.kraj = ap.kraj;
+    // paczkomat zapisany u klienta (np. „WAW123M, …”) – do pola numeru paczkomatu
+    const pk = /^([A-Z]{3}[A-Z0-9]{1,8})\b/.exec(String(o.klient.adres || '').trim().toUpperCase());
+    if (!s.adres && pk && /\d/.test(pk[1])) s.adres = pk[1];
   }
   if (!s.kategoria || !s.produkty.some(g => g.kategoria === s.kategoria)) s.kategoria = kategorie()[0] || '';
   zachowaj();
@@ -129,6 +136,13 @@ const sumaProduktow = () => (eur() ? pozycje().reduce((a, p) => a + wWalucie(p.w
 const zagranica = () => Boolean(s.kraj) && s.kraj !== 'PL';
 const metody = () => (s.oferta?.wysylki || []).filter(w => (w.zasieg || 'pl') === 'wszedzie' || ((w.zasieg || 'pl') === 'zagranica') === zagranica());
 const dostawa = () => metody().find(w => w.id === s.dostawa);
+/** Kraj bez żadnej metody dostawy – klient podaje adres, a koszt wycenia Darius. */
+const doWyceny = () => Boolean(s.kraj) && !metody().length;
+const potrzebaPolAdresu = () => doWyceny() || Boolean(dostawa()?.adres && !czyPaczkomat(dostawa()));
+const adresTekst = () => {
+  const a = s.adresPola;
+  return `${a.ulica} ${a.nr}${a.lokal ? '/' + a.lokal : ''}, ${[a.kod, a.miasto].filter(Boolean).join(' ')}`;
+};
 const gratisDla = w => w.darmowa_od !== null && w.darmowa_od !== undefined && sumaPln() >= w.darmowa_od;
 /** Koszt dostawy w walucie klienta; null = do ustalenia. */
 function kosztWysylki(w) {
@@ -137,7 +151,7 @@ function kosztWysylki(w) {
   if (gratisDla(w) || !w.cena) return 0;
   return eur() ? (w.cena_eur !== null && w.cena_eur !== undefined ? w.cena_eur : wWalucie(w.cena)) : w.cena;
 }
-const razem = () => zaokr(sumaProduktow() + (kosztWysylki(dostawa()) || 0));
+const razem = () => zaokr(sumaProduktow() + (doWyceny() ? 0 : kosztWysylki(dostawa()) || 0));
 function kategorie() {
   const kat = new Set(s.produkty.map(p => p.kategoria));
   return [...KOLEJNOSC.filter(k => kat.has(k)), ...[...kat].filter(k => !KOLEJNOSC.includes(k))];
@@ -249,9 +263,9 @@ function htmlDostawa() {
     ${s.kraj === 'XX' ? `<label class="pole"><span>${esc(t('nazwaKraju'))} *</span><input data-pole="krajNazwa" value="${esc(s.krajNazwa)}" autocomplete="country-name"></label>` : ''}
     ${!s.kraj ? '' : lista.length ? `<div class="wybory">${lista.map(w => `<label class="wybor"><input type="radio" name="dostawa" value="${esc(w.id)}" data-pole="dostawa" ${s.dostawa === w.id ? 'checked' : ''}>
         <span class="w-tekst"><b>${esc(w.nazwa)}</b>${w.opis ? `<small>${esc(w.opis)}</small>` : ''}${w.pobranie && !/odbior|pobrani/i.test(norm(w.opis)) ? `<small>${esc(t('placiszPrzyOdbiorze'))}</small>` : ''}${w.do_ustalenia && !w.opis ? `<small>${esc(t('doUstaleniaOpis'))}</small>` : ''}</span>
-        ${htmlCenyMetody(w)}</label>`).join('')}</div>` : `<p class="pusto">${esc(t('brakMetod'))}</p>`}
-    ${d?.adres ? htmlAdresu(d) : ''}
-    ${d && !d.pobranie ? `<h2>${esc(t('platnosc'))}</h2>
+        ${htmlCenyMetody(w)}</label>`).join('')}</div>` : `<p class="pasek-klienta">${esc(t('brakMetod'))}</p>`}
+    ${d?.adres ? htmlAdresu(d) : doWyceny() ? htmlPolAdresu(null) : ''}
+    ${(d && !d.pobranie) || doWyceny() ? `<h2>${esc(t('platnosc'))}</h2>
     <div class="wybory">${eur()
       ? `<label class="wybor"><input type="radio" name="forma" value="Przelew" data-pole="forma" checked><span class="w-tekst"><b>${esc(t('przelewEur'))}</b><small>${esc(t('przelewEurOpis'))}</small></span></label>`
       : `<label class="wybor"><input type="radio" name="forma" value="Przelew" data-pole="forma" ${s.forma !== 'BLIK' ? 'checked' : ''}><span class="w-tekst"><b>${esc(t('przelew'))}</b><small>${esc(t('przelewOpis'))}</small></span></label>
@@ -266,14 +280,26 @@ function htmlAdresu(d) {
       ${s.punkt && s.punkt.n === s.adres ? `<p class="wybrany-punkt"><b>${esc(s.punkt.n)}</b> · ${esc(s.punkt.a)}, ${esc(s.punkt.m)}${s.punkt.o ? `<small>${esc(s.punkt.o)}</small>` : ''}</p>` : ''}
       <input data-pole="adres" value="${esc(s.adres)}" placeholder="${esc(t('nieZnaszNumeru'))}" autocapitalize="characters" autocomplete="off" aria-label="${esc(t('numerPaczkomatu'))}"></div>`;
   }
-  return `<label class="pole"><span>${esc(t('adresDostawy'))}</span>
-    <textarea data-pole="adres" rows="3" autocomplete="street-address" placeholder="${esc(czyPunktZagranica(d) ? t('punktPlaceholder') : t('adresPlaceholder'))}">${esc(s.adres)}</textarea></label>`;
+  return htmlPolAdresu(d);
+}
+
+function htmlPolAdresu(d) {
+  const a = s.adresPola;
+  const pl = !zagranica();
+  const pole = (k, etykieta, opcje = '') => `<label class="pole a-${k}"><span>${esc(etykieta)}</span><input data-adres="${k}" value="${esc(a[k])}" ${opcje}></label>`;
+  return `<fieldset class="adres"><legend>${esc(t('adresDostawy'))}</legend>
+    ${czyPunktZagranica(d) ? pole('punkt', t('punktOpcj'), 'autocomplete="off" autocapitalize="characters"') : ''}
+    ${pole('ulica', t('ulica'), 'autocomplete="address-line1"')}
+    <div class="adres-rzad">${pole('nr', t('nrBud'), 'autocomplete="off"')}${pole('lokal', t('nrLok'), 'autocomplete="address-line2"')}</div>
+    <div class="adres-rzad">${pole('kod', t('kodPocztowy') + (pl ? ' *' : ''), `autocomplete="postal-code" ${pl ? 'inputmode="numeric" placeholder="00-000" maxlength="6"' : ''}`)}${pole('miasto', t('miasto'), 'autocomplete="address-level2"')}</div>
+    <label class="pole"><span>${esc(t('uwagiKuriera'))} <small>${esc(t('nieTrzeba'))}</small></span><textarea data-adres="uwagi" rows="2" placeholder="${esc(t('uwagiKurieraPh'))}">${esc(a.uwagi)}</textarea></label>
+  </fieldset>`;
 }
 
 function htmlDane() {
   const d = dostawa();
   const poz = pozycje();
-  const koszt = kosztWysylki(d);
+  const koszt = doWyceny() ? null : kosztWysylki(d);
   const forma = d?.pobranie ? '' : eur() ? t('przelewEur') : s.forma === 'BLIK' ? t('blik') : t('przelew');
   return `<h1>${esc(t('twojeDane'))}</h1>
     <form id="formularz" novalidate>
@@ -286,7 +312,7 @@ function htmlDane() {
     <section class="podsumowanie" aria-label="${esc(t('podsumowanie'))}">
       <h2>${esc(t('podsumowanie'))}</h2>
       <ul>${poz.map(p => `<li><span>${esc(p.g.nazwa)}${p.w.w ? ' ' + esc(p.w.w) : ''} × ${p.ilosc}</span><b>${esc(kwota(zaokr(wWalucie(p.w.cena) * p.ilosc)))}</b></li>`).join('')}
-        <li><span>${esc(d ? d.nazwa : t('dostawa'))}${s.adres && d?.adres ? `<small>${esc(s.adres)}${zagranica() ? ', ' + esc(s.kraj === 'XX' ? s.krajNazwa : nazwaKraju(s.kraj)) : ''}</small>` : ''}</span>
+        <li><span>${esc(d ? d.nazwa : t('doWyceny'))}${(d?.adres || doWyceny()) ? `<small>${esc(potrzebaPolAdresu() ? adresTekst() : s.adres)}${zagranica() ? ', ' + esc(s.kraj === 'XX' ? s.krajNazwa : nazwaKraju(s.kraj)) : ''}${potrzebaPolAdresu() && s.adresPola.uwagi ? ' · ' + esc(s.adresPola.uwagi) : ''}</small>` : ''}</span>
           <b>${koszt === null ? esc(t('doUstalenia')) : koszt ? esc(kwota(koszt)) : esc(t('gratis'))}</b></li></ul>
       <p class="razem">${esc(koszt === null ? t('razemPlus') : t('razem'))}: <b>${esc(kwota(razem()))}</b></p>
       <p class="drobne">${esc(d?.pobranie ? t('placiszPrzyOdbiorzeTxt') : t('platnoscTxt', { f: forma.toLowerCase() }))}
@@ -329,7 +355,7 @@ function render() {
   const pasek = $('#pasek');
   document.documentElement.lang = s.jezyk;
   document.title = `${t('tytul')} · One River`;
-  $('.marka small').textContent = t('tytul').toLowerCase();
+  $('.marka small').textContent = t('tytul');
   $('#ustawienia').innerHTML = s.oferta ? htmlUstawien() : '';
   if (!s.oferta) return;
   if (s.wyslane) { w.innerHTML = htmlGotowe(); pasek.hidden = true; return; }
@@ -360,8 +386,13 @@ function sprawdzKrok(krok) {
   if (krok === 'dostawa') {
     if (!s.kraj || (s.kraj === 'XX' && !s.krajNazwa.trim())) return t('bKraj');
     const d = dostawa();
-    if (!d) return t('bDostawa');
-    if (d.adres && !s.adres.trim()) return czyPaczkomat(d) ? t('bPaczkomat') : t('bAdres');
+    if (!d && !doWyceny()) return t('bDostawa');
+    if (d && czyPaczkomat(d) && !s.adres.trim()) return t('bPaczkomat');
+    if (potrzebaPolAdresu()) {
+      const a = s.adresPola;
+      if (!a.ulica.trim() || !a.nr.trim() || !a.miasto.trim() || (!zagranica() && !a.kod.trim())) return t('bAdresPola');
+      if (!zagranica() && !/^\d{2}-\d{3}$/.test(a.kod.trim())) return t('bKodPl');
+    }
     return '';
   }
   if (krok === 'dane') {
@@ -375,6 +406,13 @@ function sprawdzKrok(krok) {
 
 function pokazBlad(b) {
   toast(b, 'blad', 6000);
+  if (b === t('bAdresPola') || b === t('bKodPl')) {
+    const a = s.adresPola;
+    const k = b === t('bKodPl') ? 'kod' : ['ulica', 'nr', 'kod', 'miasto'].find(x => !a[x].trim()) || 'ulica';
+    const el = $(`[data-adres="${k}"]`);
+    if (el) { el.focus(); el.classList.add('blad'); setTimeout(() => el.classList.remove('blad'), 3000); }
+    return;
+  }
   const pole = [[t('bKraj'), 'kraj'], [t('bPaczkomat'), 'adres'], [t('bAdres'), 'adres'], [t('bImie'), 'nazwa'], [t('bTelefon'), 'telefon'], [t('bEmail'), 'email'], [t('bEmailWym'), 'email']]
     .find(([k]) => k === b)?.[1];
   const el = pole && $(`[data-pole="${pole}"]`);
@@ -394,12 +432,13 @@ async function wyslij() {
       kod: s.kod || '', www: $('[name=www]')?.value || '',
       klient: { nazwa: s.dane.nazwa.trim(), telefon: s.dane.telefon.trim(), email: s.dane.email.trim() },
       pozycje: pozycje().map(p => ({ symbol: p.w.s, ilosc: p.ilosc })),
-      dostawa_id: d ? d.id : '', adres: d?.adres ? s.adres.trim() : '',
+      dostawa_id: d ? d.id : '', adres: d && czyPaczkomat(d) ? s.adres.trim() : '',
+      adres_pola: potrzebaPolAdresu() ? { ...s.adresPola, uwagi: [s.adresPola.punkt && czyPunktZagranica(d) ? `${t('punkt')}: ${s.adresPola.punkt}` : '', s.adresPola.uwagi].filter(x => String(x).trim()).join(' · ') } : null,
       kraj: s.kraj === 'XX' ? 'XX' : s.kraj, kraj_nazwa: s.kraj === 'XX' ? s.krajNazwa.trim() : nazwaKraju(s.kraj),
       forma_platnosci: d?.pobranie ? 'Pobranie' : eur() ? 'Przelew' : s.forma, uwagi: s.dane.uwagi.trim(),
       waluta: eur() ? 'EUR' : 'PLN', jezyk: s.jezyk,
     });
-    const doUstalenia = Boolean(wynik.do_ustalenia);
+    const doUstalenia = Boolean(wynik.do_ustalenia) || doWyceny();
     s.wyslane = { numer: wynik.numer, pobranie: Boolean(d?.pobranie), doUstalenia,
       tekstSumy: wynik.waluta === 'EUR' && wynik.suma_eur !== '' ? kwota(Number(wynik.suma_eur)) : eur() ? tekstSumy : kwota(Number(wynik.suma)) };
     s.koszyk = {}; s.krok = 'produkty'; s.dane.uwagi = '';
@@ -562,6 +601,15 @@ document.addEventListener('submit', e => {
 });
 
 document.addEventListener('input', e => {
+  const ak = e.target.dataset?.adres;
+  if (ak) {
+    let v = e.target.value;
+    if (ak === 'kod' && !zagranica()) { const c = v.replace(/\D/g, '').slice(0, 5); v = c.length > 2 ? c.slice(0, 2) + '-' + c.slice(2) : c; if (v !== e.target.value) e.target.value = v; }
+    if (ak === 'punkt') { v = v.toUpperCase(); if (v !== e.target.value) e.target.value = v; }
+    s.adresPola[ak] = v;
+    zachowaj();
+    return;
+  }
   const pole = e.target.dataset?.pole;
   if (!pole) return;
   const v = e.target.value;
@@ -593,7 +641,7 @@ document.addEventListener('change', e => {
     const bylaZagranica = zagranica();
     s.kraj = e.target.value;
     if (!dostawa()) s.dostawa = '';
-    if (bylaZagranica !== zagranica()) { s.adres = ''; s.punkt = null; }
+    if (bylaZagranica !== zagranica()) { s.adres = ''; s.punkt = null; s.adresPola = { ...s.adresPola, kod: '', punkt: '' }; }
     // klient zagraniczny zwykle płaci w euro – ustawiamy, póki sam nie wybrał waluty
     if (zagranica() && !s.walutaWybrana && kurs()) s.waluta = 'EUR';
     if (s.kraj === 'PL' && !s.walutaWybrana) s.waluta = 'PLN';

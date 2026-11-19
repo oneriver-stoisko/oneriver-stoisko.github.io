@@ -202,3 +202,11 @@ dialog.mapa { width: min(760px, 100vw); max-width: 100vw; height: min(900px, 100
 .mapa-lista span, .mapa-lista small { display: block; color: var(--szary); font-size: 14.5px; }
 .leaflet-popup-content { font: 14px/1.4 var(--font); }
 .leaflet-popup-content .glowny.maly { margin-top: 8px; padding: 8px 12px; font-size: 14px; }
+
+/* adres w osobnych polach */
+fieldset.adres { border: 0; padding: 0; margin: 18px 0 0; min-width: 0; }
+fieldset.adres legend { font-family: var(--font-naglowki); font-weight: 700; font-size: 20px; padding: 0; margin-bottom: 4px; }
+fieldset.adres .pole { margin: 10px 0; }
+.adres-rzad { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.adres-rzad .a-kod { min-width: 0; }
+.adres-rzad:last-of-type { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); }

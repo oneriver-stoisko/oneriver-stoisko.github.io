@@ -72,9 +72,12 @@ function trescEN(zam, pozycje) {
   if (prod.length > MAKS_POZYCJI) linie.push(`…and ${prod.length - MAKS_POZYCJI} more`);
   if (zam.dostawa) {
     const koszt = num(zam.koszt_dostawy);
-    const nazwa = zam.przewoznik === MIEDZYNARODOWY || czyInPost(zam.przewoznik) ? zam.przewoznik || 'InPost' : zam.dostawa;
+    // zamówienie z formularza bez przewoźnika (np. wysyłka wyceniona indywidualnie) – nazwa metody z formularza
+    const nazwa = !zam.przewoznik && zam.zrodlo === 'formularz' ? zam.dostawa
+      : zam.przewoznik === MIEDZYNARODOWY || czyInPost(zam.przewoznik) ? zam.przewoznik || 'InPost' : zam.dostawa;
+    const kosztEur = eur && koszt && num(zam.kurs) > 0 ? ': €' + Math.max(1, Math.round(koszt / num(zam.kurs))) : '';
     linie.push(zam.oplaca_odbiorca === 'tak' ? `Shipping – ${nazwa}: postage paid on delivery`
-      : eur ? `Shipping – ${nazwa}${koszt ? '' : ': free'}` : `Shipping – ${nazwa}: ${koszt ? kwotaTxt(koszt) : 'free'}`);
+      : eur ? `Shipping – ${nazwa}${koszt ? kosztEur : ': free'}` : `Shipping – ${nazwa}: ${koszt ? kwotaTxt(koszt) : 'free'}`);
     if (zam.adres_dostawy) linie.push(`${/paczkomat/i.test(zam.dostawa) ? 'Parcel locker / pickup point' : 'Address'}: ${String(zam.adres_dostawy).replace(/\s*\n\s*/g, ', ')}`);
     if (zam.nr_przesylki) {
       const link = linkSledzenia(zam.nr_przesylki, zam.przewoznik || 'InPost');

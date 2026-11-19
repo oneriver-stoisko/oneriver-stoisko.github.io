@@ -36,7 +36,7 @@ function karta(z) {
     ${z.przyjeto && !z.wyslano ? `<p class="wy-przyjete">👍 Przyjęte do realizacji ${esc(z.przyjeto)}</p>` : ''}
     ${!z.przyjeto && !z.wyslano && !trybProsty() ? '<p class="wy-kto">⏳ Jeszcze nie przyjęte do realizacji</p>' : ''}
     <p class="wy-klient">Dla: <b>${esc(k?.nazwa || '—')}</b></p>
-    <p class="wy-dokad">${esc(z.przewoznik && z.przewoznik !== 'InPost' ? z.przewoznik : (z.dostawa || 'InPost'))}${z.adres_dostawy ? `<br>${esc(z.adres_dostawy)}` : ''}</p>
+    <p class="wy-dokad">${esc(z.przewoznik && z.przewoznik !== 'InPost' ? z.przewoznik : (z.dostawa || 'InPost'))}${z.adres_dostawy ? `<br>${esc(z.adres_dostawy)}` : ''}${z.uwagi_kuriera ? `<br><small>uwagi: ${esc(z.uwagi_kuriera)}</small>` : ''}</p>
     <ul class="wy-produkty">${poz.map(p => `<li><span>${esc(p.nazwa)}</span><b>× ${esc(iloscTxt(num(p.ilosc)))}</b></li>`).join('')}</ul>
     ${z.kod_nadania ? `<p class="wy-kod">Kod nadania:<br><b>${esc(String(z.kod_nadania).replace(/(\d{3})(?=\d)/g, '$1 '))}</b></p>` : ''}
     ${z.uwagi ? `<p class="wy-uwagi">Uwagi: ${esc(z.uwagi)}</p>` : ''}

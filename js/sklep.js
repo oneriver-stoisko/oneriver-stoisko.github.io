@@ -83,7 +83,7 @@ function render() {
       <h2>Cennik dostaw</h2>
       <p class="podpowiedz">Te metody i ceny widzi klient w formularzu. „Darmowa od” – od jakiej kwoty zakupów dostawa jest gratis (puste = nigdy). Zmiana działa w formularzu po ok. 10 minutach.</p>
       ${htmlWysylek()}
-      <p class="podpowiedz">„Za pobraniem” razem z „koszt do ustalenia”: klient widzi „do ustalenia”, a koszt wpisujesz przy sprawdzaniu zamówienia, zanim wyślesz klientowi potwierdzenie.</p>
+      <p class="podpowiedz">Pobranie: dodaj osobną metodę (np. „Paczkomat InPost – za pobraniem”) z własną ceną, np. 21 zł. „Koszt do ustalenia”: klient widzi „do ustalenia”, a kwotę wpisujesz przy sprawdzaniu zamówienia. Kraj, dla którego nie ma żadnej metody „Za granicą”, klient też może wybrać – poda adres, a Ty wycenisz wysyłkę w zamówieniu.</p>
       ${PRZYKLADOWE_WYSYLKI.some(w => !istniejace.has(w.nazwa)) ? `<p class="etykieta">Dodaj gotową metodę:</p>
       <div class="chipy">${PRZYKLADOWE_WYSYLKI.map((w, i) => istniejace.has(w.nazwa) ? '' : `<button type="button" class="chip" data-akcja="dodaj-wysylke" data-i="${i}">+ ${esc(w.nazwa)}</button>`).join('')}</div>` : ''}
       <div class="przyciski"><button type="button" class="drugorzedny" data-akcja="dodaj-wysylke" data-i="-1">+ Własna metoda</button></div>
