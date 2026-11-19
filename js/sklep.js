@@ -52,11 +52,11 @@ function render() {
     <h1>Sklep</h1>
     ${api && api < 7 ? `<p class="pasek-info blad">Skrypt arkusza ma wersję ${api}. Formularz dla klientów, wysyłki i ceny specjalne działają od wersji 7 – wklej nowy Kod.gs.</p>` : ''}
 
-    <article class="panel${dane.zapotrzebowania.some(z => (z.status || 'nowe') === 'nowe') ? ' wyroznij' : ''}">
+    <article class="panel${dane.zapotrzebowania.some(z => ['nowe', 'sprawdzone'].includes(z.status || 'nowe')) ? ' wyroznij' : ''}">
       <h2>Grażynka</h2>
-      ${(() => { const n = dane.zapotrzebowania.filter(z => (z.status || 'nowe') === 'nowe').length;
-        return `<p>${n ? `<b>${n} ${n === 1 ? 'nowe zapotrzebowanie' : 'nowe zapotrzebowania'}</b> do obejrzenia.` : 'Brak nowych zapotrzebowań.'} Instrukcji: ${dane.instrukcje.length}.</p>`; })()}
-      <div class="przyciski"><a class="przycisk" href="#potrzebuje">Zapotrzebowanie</a><a class="przycisk drugorzedny" href="#instrukcje">Instrukcje dla Grażynki</a></div>
+      ${(() => { const n = dane.zapotrzebowania.filter(z => (z.status || 'nowe') === 'nowe').length; const s = dane.zapotrzebowania.filter(z => z.status === 'sprawdzone').length;
+        return `<p>${n ? `<b>${n} ${n === 1 ? 'nowe zapotrzebowanie' : 'nowe zapotrzebowania'}</b>. ` : 'Brak nowych zapotrzebowań. '}${s ? `<b>${s} do zatwierdzenia</b> (policzone przez Grażynkę). ` : ''}Instrukcji: ${dane.instrukcje.length}.</p>`; })()}
+      <div class="przyciski"><a class="przycisk" href="#potrzebuje">Zapotrzebowanie i przesunięcia (MM)</a><a class="przycisk drugorzedny" href="#instrukcje">Instrukcje dla Grażynki</a></div>
     </article>
 
     <article class="panel">

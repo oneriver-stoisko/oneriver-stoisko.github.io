@@ -644,3 +644,31 @@ body.prosty .gora .sync { margin-left: auto; }
 .wy-przyjmij { background: var(--tlo-info); color: var(--na-info); border-color: var(--tlo-info); }
 .wy-cofnij, .wy-przypomnij { min-height: 46px; border-radius: 12px; border: 1.5px solid var(--linia); background: var(--papier); color: var(--atrament); font-size: 16px; font-weight: 700; cursor: pointer; }
 .wy-przypomnij { border-color: var(--ramka-akcent); }
+
+/* ───────── zapotrzebowanie i przesunięcia (MM) ───────── */
+.pz-wybierz { min-height: 44px; padding: 0 14px; border-radius: 22px; border: 2px solid var(--ramka-akcent); background: var(--papier); color: var(--tekst-akcent); font-weight: 700; font-size: 16px; cursor: pointer; white-space: nowrap; }
+.pz-wybierz.wybrany { background: var(--przycisk-glowny, var(--rzeka)); border-color: var(--przycisk-glowny, var(--rzeka)); color: #fff; }
+.pz-ile-et { margin-right: auto; color: var(--szary); font-size: 15px; }
+.pz-dostawy { display: grid; gap: 10px; margin: 6px 0 16px; }
+.pz-dostawa { display: grid; gap: 4px; text-align: left; padding: 16px 18px; border-radius: 16px; border: 2px solid var(--ramka-akcent); background: var(--tlo-info); color: var(--na-info); font-size: 17px; cursor: pointer; }
+.pz-dostawa span { font-size: 15px; }
+.pz-liczenie li.inaczej { border-color: var(--ramka-blad, #b3372c); }
+.pz-rozn { color: var(--tekst-blad); }
+.przesuniecia .mm-info { color: var(--szary); font-size: 14.5px; margin: 2px 0 8px; }
+.przesuniecia .mm-roznica td { background: var(--tlo-uwaga); color: var(--na-uwaga); }
+.przesuniecia .pz-status.s-sprawdzone, .przesuniecia .pz-status.s-nowe { background: var(--tlo-uwaga); color: var(--na-uwaga); }
+.przesuniecia .pz-status.s-zatwierdzone { background: var(--tlo-ok); color: var(--na-ok); }
+.mm-edycja .chipy.male { align-items: center; margin-bottom: 8px; }
+.mm-edycja .etykieta-mag, .przesuniecia .etykieta-mag { color: var(--szary); font-size: 14.5px; }
+.mm-pozycje { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 8px; }
+.mm-pozycje li { display: grid; grid-template-columns: 1fr auto auto; gap: 6px 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--linia); border-radius: 12px; background: var(--papier); }
+.mm-pozycje li.mm-zle { border-color: var(--ramka-blad, #b3372c); }
+.mm-p-nazwa { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.mm-stany { color: var(--szary); }
+.mm-ile { display: grid; gap: 2px; font-size: 13px; color: var(--szary); }
+.mm-ile input { width: 84px; min-height: 44px; font-size: 18px; text-align: center; }
+.mm-ostrz { grid-column: 1 / -1; }
+.mm-wyniki { list-style: none; padding: 0; margin: 4px 0 12px; display: grid; gap: 6px; }
+.mm-wynik { width: 100%; display: grid; gap: 2px; text-align: left; padding: 10px 12px; border: 1px solid var(--linia); border-radius: 10px; background: var(--papier); color: var(--atrament); cursor: pointer; }
+.mm-wynik small { color: var(--szary); }
+.mm-zapis { flex-wrap: wrap; }

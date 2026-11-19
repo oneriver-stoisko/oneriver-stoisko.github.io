@@ -128,3 +128,42 @@ export function trescEpp(firma, dokumenty, teraz = new Date(), stronaKodowa = 12
 
 export const FIRMA_INCO = { symbol: 'INC', nazwa: 'Inco_OneRiver', nazwaPelna: 'One River', miasto: 'Warszawa', kod: '00-000',
   ulica: 'Nowogrodzka 64/43', nip: '7011179242', magazyn: 'INC', magazynNazwa: 'Główny', magazynOpis: 'Magazyn główny', operator: 'Aleksander' };
+
+/**
+ * Przesunięcie międzymagazynowe (EDI++: typ „MMW”). Magazyn źródłowy = magazyn z [INFO] (firma.magazyn),
+ * docelowy = pole 11 nagłówka (symbol, 3 znaki). Ceny zerowe – wartość MM liczy Subiekt z dostaw (ceny zakupu).
+ * @param {Array} dokumenty [{ numer, data, magazynDo, wystawca, uwagi, pozycje: [{ symbol, nazwa, typ, jm, ilosc, vat, cenaCennik, grupa }] }]
+ */
+export function trescEppMM(firma, dokumenty, teraz = new Date(), stronaKodowa = 1250) {
+  const L = [];
+  const sekcja = (naglowek, wiersze) => { L.push('[NAGLOWEK]', naglowek, '', '[ZAWARTOSC]', ...wiersze, ''); };
+  L.push('[INFO]', linia(['"1.11"', 3, stronaKodowa, T('Subiekt GT'), T(firma.symbol), T(firma.nazwa), T(firma.nazwaPelna), T(firma.miasto), T(firma.kod),
+    T(firma.ulica), T(firma.nip), T(firma.magazyn), T(firma.magazynNazwa), T(firma.magazynOpis), '', 0, '', '', T(firma.operator), D(teraz),
+    T('Polska'), T('PL'), '', 0]), '');
+  const towary = new Map();
+  for (const d of dokumenty) {
+    const rok = new Date(d.data).getFullYear();
+    const pelny = d.pelnyNumer || `${d.numer}/${rok}`;
+    const poz = d.pozycje.map((p, i) => ({ ...p, lp: i + 1, typNr: TYP_TOWARU[p.typ] || 1 }));
+    L.push('[NAGLOWEK]', linia([T('MMW'), 1, 0, d.numer, '', '', T(pelny), '', '', '', T(String(d.magazynDo || '').slice(0, 3)),
+      '', '', '', '', '', '', '', T(d.kategoria || ''), T(d.podtytul || ''), T(d.miejsce || 'Warszawa'), Dzien(d.data), Dzien(d.data), '', poz.length, 1, T('Detaliczna'),
+      K(0), K(0), K(0), K(0), '', K(0), '', '', K(0), K(0), 0, 0, 1, 0, T(';' + (d.wystawca || '')),
+      T(d.odbiorca || ''), '', K(0), K(0), T('PLN'), K(1), T(d.uwagi || ''), '', '', '', 0, 0, 0, '', K(0), '', K(0), T('Polska'), T('PL'), 0]), '');
+    L.push('[ZAWARTOSC]', ...poz.map(p => linia([p.lp, p.typNr, T(p.symbol), 1, 1, 0, 0, K(0), K(0), T(p.jm || 'szt.'),
+      K(p.ilosc), K(p.ilosc), K(0), K(0), K(0), K(p.vat ?? 23), K(0), K(0), K(0), K(0), '', ''])), '');
+    poz.forEach(p => { if (!towary.has(p.symbol)) towary.set(p.symbol, p); });
+  }
+  const tow = [...towary.values()];
+  const st = p => T(String(Math.round(p.vat ?? 23)));
+  sekcja('"KONTRAHENCI"', []);
+  sekcja('"TOWARY"', tow.map(p => linia([p.typNr, T(p.symbol), '', T(p.ean || ''), T(p.nazwa), '', '', '', '', T(p.jm || 'szt.'),
+    st(p), K(p.vat ?? 23), st(p), K(p.vat ?? 23), K(0), K(0), '', 0, '', '', '', K(0), 0, '', '', 0, T(p.jm || 'szt.'), K(0), K(0), '', 0, '', 0, 0, T('0'), '', '', '', '', '', '', ''])));
+  sekcja('"CENNIK"', tow.flatMap(p => {
+    const b = Number(p.cenaCennik || 0), n = zl(b / (1 + (p.vat ?? 23) / 100));
+    return [linia([T(p.symbol), T('Detaliczna'), K(n), K(b), K(n), K(100), K(n)])];
+  }));
+  sekcja('"GRUPYTOWAROW"', tow.map(p => linia([T(p.symbol), T(p.grupa || 'Podstawowa'), ''])));
+  sekcja('"CECHYTOWAROW"', []);
+  sekcja('"DODATKOWETOWAROW"', tow.map(p => linia([T(p.symbol), 0, 0, K(0), 0, 0, 0])));
+  return L.join('\r\n') + '\r\n';
+}

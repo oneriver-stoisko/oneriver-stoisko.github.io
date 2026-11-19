@@ -132,6 +132,8 @@ function zbudujCennik(katalog, dokumenty, pozycje) {
       ukryty: prawda(w.ukryty), sprzedano: sprzedaz.get(String(w.id))?.sprzedano || 0,
       stan: w.stan === '' || w.stan == null ? null : num(w.stan),
       stanGr: w.stan_gr === '' || w.stan_gr == null ? null : num(w.stan_gr),
+      stanInc: w.stan_inc === '' || w.stan_inc == null ? null : num(w.stan_inc),
+      podmioty: String(w.podmioty || ''),
     }));
     dane.stanyZDnia = String(aktywne.find(w => w.stan_z_dnia)?.stan_z_dnia || '');
   } else {

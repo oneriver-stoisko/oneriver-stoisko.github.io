@@ -14,7 +14,7 @@ import { ekran as ekranPoziomow } from './poziomy.js';
 import { ekran as ekranProsty } from './prosty.js';
 import { ekran as ekranWysylek, ileDoWyslania } from './wysylki.js';
 import { ekran as ekranInstrukcji } from './instrukcje.js';
-import { ekran as ekranPotrzeb, ileNowychZapotrzebowan } from './potrzebuje.js';
+import { ekran as ekranPotrzeb, ileNowychZapotrzebowan, ileDoSprawdzenia } from './potrzebuje.js';
 import { ekran as ekranMailingu } from './mailing.js';
 import { ustawZnaczek, odswiezCichutko } from './powiadomienia.js';
 import { ileDoPotwierdzenia } from './lista.js';
@@ -73,8 +73,11 @@ function render() {
   const nz = ileNowychZapotrzebowan();
   const lz = $('.nawigacja [data-widok="sklep"] .licznik');
   if (lz) { lz.textContent = nz || ''; lz.hidden = !nz; }
+  const ns = ileDoSprawdzenia();
+  const lp = $('.nawigacja [data-widok="potrzebuje"] .licznik');
+  if (lp) { lp.textContent = ns || ''; lp.hidden = !ns; }
   // znaczek na ikonie aplikacji (Windows, macOS, iPhone; na Androidzie kropkę daje powiadomienie)
-  ustawZnaczek(trybProsty() ? nw : n + nz);
+  ustawZnaczek(trybProsty() ? nw + ns : n + nz);
   ekran.render(arg);
   document.title = `${tytul} · One River Stoisko`;
 }
