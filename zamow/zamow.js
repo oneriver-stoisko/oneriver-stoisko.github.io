@@ -4,7 +4,7 @@
 // Oferta, ceny i cennik dostaw przychodzą ze skryptu arkusza (akcja „sklep”); zamówienie wysyła akcja „zamow”.
 // Link z #kod=… pokazuje ceny klienta i wpisuje jego dane; #lang=en|es|fr|de ustawia język.
 
-import { T, JEZYKI, KATEGORIE, KRAJE } from './teksty.js';
+import { T, JEZYKI, KATEGORIE, KRAJE } from './teksty.js?v=4';
 
 const API = 'https://script.google.com/macros/s/AKfycbwFcvYtbGMBPlJCT_QDzXfnFvnnEQQt1EqFrjnhEKgeg7lo22JuRwFxOK5-vZGcVwg9CQ/exec';
 const KOLEJNOSC = ['Rapé', 'Akcesoria do rapé', 'Zielarnia i olejki', 'Biżuteria', 'Odzież', 'Wystrój wnętrz i inne', 'Instrumenty etniczne'];
@@ -50,14 +50,15 @@ function kwota(n) {
 function wczytajPamiec() {
   try {
     const p = JSON.parse(localStorage.getItem(PAMIEC)) || {};
-    ['koszyk', 'kod', 'dostawa', 'adres', 'punkt', 'forma', 'kraj', 'krajNazwa', 'jezyk', 'waluta'].forEach(k => { if (p[k] !== undefined && p[k] !== null) s[k] = p[k]; });
+    // język i walutę pamiętamy tylko wtedy, gdy klient sam je wybrał (link bez #lang= zawsze po polsku)
+    ['koszyk', 'kod', 'dostawa', 'adres', 'punkt', 'forma', 'kraj', 'krajNazwa', 'jezykWybrany', 'walutaWybrana'].forEach(k => { if (p[k] !== undefined && p[k] !== null) s[k] = p[k]; });
     s.adresPola = { ...s.adresPola, ...(p.adresPola || {}) };
     s.dane = { ...s.dane, ...(p.dane || {}) };
   } catch { /* pusto */ }
 }
 function zachowaj() {
-  const { koszyk, kod, dostawa, adres, punkt, forma, kraj, krajNazwa, jezyk, waluta, dane, adresPola } = s;
-  try { localStorage.setItem(PAMIEC, JSON.stringify({ koszyk, kod, dostawa, adres, punkt, forma, kraj, krajNazwa, jezyk, waluta, dane, adresPola })); } catch { /* bez znaczenia */ }
+  const { koszyk, kod, dostawa, adres, punkt, forma, kraj, krajNazwa, jezykWybrany, walutaWybrana, dane, adresPola } = s;
+  try { localStorage.setItem(PAMIEC, JSON.stringify({ koszyk, kod, dostawa, adres, punkt, forma, kraj, krajNazwa, jezykWybrany, walutaWybrana, dane, adresPola })); } catch { /* bez znaczenia */ }
 }
 
 // ───────────────────────── API ─────────────────────────
@@ -650,11 +651,12 @@ document.addEventListener('change', e => {
   else if (pole === 'ilosc') { ustawIlosc(e.target.dataset.s, e.target.value); odswiez(); }
   else if (pole === 'jezyk') {
     s.jezyk = e.target.value;
+    s.jezykWybrany = s.jezyk;
     s.produkty.forEach(g => { g.szukaj = norm(g.nazwa + ' ' + g.kategoria + ' ' + nazwaKategorii(g.kategoria) + ' ' + g.warianty.map(w => w.nazwa + ' ' + w.w).join(' ')); });
     zachowaj(); odswiez();
   }
 });
-document.addEventListener('click', e => { if (e.target.closest('[data-akcja="waluta"]')) s.walutaWybrana = true; }, true);
+document.addEventListener('click', e => { const w = e.target.closest('[data-akcja="waluta"]'); if (w) s.walutaWybrana = w.dataset.w; }, true);
 
 // ───────────────────────── kod klienta, komunikaty ─────────────────────────
 
@@ -701,12 +703,9 @@ async function przeladuj() {
 wczytajPamiec();
 const parametry = new URLSearchParams(location.hash.slice(1) + '&' + location.search.slice(1));
 const jezykZLinku = parametry.get('lang');
-if (jezykZLinku && T[jezykZLinku]) s.jezyk = jezykZLinku;
-if (!T[s.jezyk]) {
-  const przegladarka = (navigator.languages || [navigator.language || 'pl']).map(j => String(j).slice(0, 2).toLowerCase()).find(j => T[j]);
-  s.jezyk = przegladarka || 'pl';
-}
-if (!s.waluta) s.waluta = s.jezyk === 'pl' ? 'PLN' : 'EUR';
+// język: z linku (#lang=en…), inaczej ostatnio wybrany ręcznie przez klienta, inaczej polski
+s.jezyk = (jezykZLinku && T[jezykZLinku]) ? jezykZLinku : (T[s.jezykWybrany] ? s.jezykWybrany : 'pl');
+s.waluta = s.walutaWybrana === 'EUR' || s.walutaWybrana === 'PLN' ? s.walutaWybrana : (s.jezyk === 'pl' ? 'PLN' : 'EUR');
 const kodZLinku = parametry.get('kod');
 if (kodZLinku) {
   if (kodZLinku !== s.kod) { s.dane = { nazwa: '', telefon: '', email: '', uwagi: '' }; s.adres = ''; s.punkt = null; }
