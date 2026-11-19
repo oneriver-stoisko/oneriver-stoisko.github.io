@@ -3,7 +3,11 @@
 // Duże przyciski, jasne komunikaty. Przy gramaturach widać stan magazynu GR (u Grażynki).
 
 import { $, esc, kwotaTxt, liczba, liczbaNaTekst, uuid, toast, okno, normalizuj, bezSkoku } from './util.js';
-import { dane, zamowienie, pozycjeZamowienia, telefonE164 } from './dane.js';
+import { dane, zamowienie, pozycjeZamowienia, telefonE164, klient, kluczNazwy, zamowieniaKlienta } from './dane.js';
+import { htmlPodpowiedzi } from './podpowiedzi.js';
+
+/** Grażynka widzi w podpowiedziach tylko swoich klientów (dodanych u niej albo z zakupami z jej magazynu). */
+const jejKlient = k => /grażynka/i.test(String(k.kto || '')) || zamowieniaKlienta(k.id).some(z => z.magazyn === 'GR');
 import { ustawienia } from './api.js';
 import { trescWiadomosci, linkSms, otworzLink } from './wiadomosc.js';
 import { zapiszProste } from './nowe.js';
@@ -17,7 +21,7 @@ const KROKI = ['produkty', 'koszyk', 'platnosc', 'klient'];
 const TYTULY = { produkty: 'Wybierz produkty', koszyk: 'Sprawdź ilości i ceny', platnosc: 'Jak klient płaci?', klient: 'Telefon klienta' };
 
 const KLUCZ = 'or-stoisko-prosty-szkic';
-const nowy = () => ({ krok: 'produkty', kategoria: KATEGORIE[0][0], szukaj: '', koszyk: [], forma: '', gotowkaTxt: '', zaplacone: false, telefon: '', nazwa: '', otwarty: '', numer: '', blad: '' });
+const nowy = () => ({ krok: 'produkty', kategoria: KATEGORIE[0][0], szukaj: '', koszyk: [], forma: '', gotowkaTxt: '', zaplacone: false, telefon: '', nazwa: '', klientId: '', otwarty: '', numer: '', blad: '' });
 let p = (() => { try { return { ...nowy(), ...JSON.parse(localStorage.getItem(KLUCZ) || '{}'), blad: '' }; } catch { return nowy(); } })();
 const zachowaj = () => { try { localStorage.setItem(KLUCZ, JSON.stringify({ ...p, blad: '' })); } catch { /* bez znaczenia */ } };
 
@@ -125,7 +129,8 @@ function htmlKlient() {
   return `<label class="pr-pole"><span>Telefon klienta</span>
       <input type="tel" data-pole="telefon" inputmode="tel" value="${esc(p.telefon)}" placeholder="np. 600 100 200" autocomplete="off"></label>
     <label class="pr-pole"><span>Imię i nazwisko (nie trzeba)</span>
-      <input data-pole="nazwa" value="${esc(p.nazwa)}" autocomplete="off"></label>
+      <input data-pole="nazwa" value="${esc(p.nazwa)}" autocomplete="off" placeholder="Zacznij pisać – podpowiem"></label>
+    <div id="podp-kl">${p.klientId && klient(p.klientId) ? `<p class="pr-podp">✓ Stały klient: <b>${esc(klient(p.klientId).nazwa)}</b> <button type="button" class="link" data-akcja="inny-klient">zmień</button></p>` : ''}</div>
     <p class="pr-razem">Razem: <b>${esc(kwotaTxt(razem()))}</b> · ${esc(p.forma === 'BLIK' ? 'BLIK' : p.forma === 'Podzielona' ? `gotówka ${kwotaTxt(gotowka())} + BLIK ${kwotaTxt(resztaBlik())}` : 'gotówka')}</p>
     <button type="button" class="pr-glowny" data-akcja="zapisz" data-v="sms">✓ Zapisz i wyślij SMS</button>
     <button type="button" class="pr-drugi" data-akcja="zapisz" data-v="">Zapisz bez SMS-a</button>`;
@@ -200,7 +205,7 @@ async function zapisz(kanal, przycisk) {
     const platnosci = p.forma === 'Podzielona'
       ? [{ forma: 'Gotówka', kwotaTxt: liczbaNaTekst(gotowka()), zaplacone: true }, { forma: 'BLIK', kwotaTxt: '', zaplacone: p.zaplacone }]
       : [{ forma: p.forma, kwotaTxt: '', zaplacone: p.forma === 'Gotówka' || p.zaplacone }];
-    const numer = await zapiszProste({ koszyk, platnosci, telefon: p.telefon, nazwa: p.nazwa, magazyn: 'GR' });
+    const numer = await zapiszProste({ koszyk, platnosci, telefon: p.telefon, nazwa: p.nazwa, magazyn: 'GR', klientId: p.klientId || '' });
     p = { ...nowy(), numer };
     zachowaj();
     if (kanal) wyslijSms(numer);
@@ -265,6 +270,11 @@ async function klik(e) {
     p = nowy();
   } else if (akcja === 'zapisz') { await zapisz(v, b); return; }
   else if (akcja === 'nowa') { p = nowy(); window.scrollTo(0, 0); }
+  else if (akcja === 'wybierz-klienta') {
+    const k = klient(b.dataset.id);
+    if (!k) return;
+    p.klientId = String(k.id); p.nazwa = k.nazwa || ''; if (k.telefon) p.telefon = k.telefon;
+  } else if (akcja === 'inny-klient') { p.klientId = ''; p.nazwa = ''; p.telefon = ''; }
   else if (akcja === 'sms-ponownie') { wyslijSms(p.numer); return; }
   else return;
   zachowaj();
@@ -284,7 +294,13 @@ function wejscie(e) {
     const kb = $('#pr-kwota-blik'); if (kb) kb.textContent = kwotaTxt(ok ? resztaBlik() : 0);
     if (ok && p.blad) blad('');
   }
-  else if (pole === 'telefon' || pole === 'nazwa') p[pole] = e.target.value;
+  else if (pole === 'telefon' || pole === 'nazwa') {
+    p[pole] = e.target.value;
+    const k = p.klientId && klient(p.klientId);
+    if (k && (pole === 'nazwa' ? kluczNazwy(k.nazwa) !== kluczNazwy(p.nazwa) : telefonE164(k.telefon) !== telefonE164(p.telefon))) p.klientId = '';
+    const pp = $('#podp-kl');
+    if (pp && !p.klientId) pp.innerHTML = htmlPodpowiedzi(e.target.value, { filtr: jejKlient });
+  }
   else if (pole === 'zaplacone') p.zaplacone = e.target.checked;
   zachowaj();
 }

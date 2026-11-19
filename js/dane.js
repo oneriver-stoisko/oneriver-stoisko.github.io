@@ -8,7 +8,7 @@ import { num, zaokr, dataLok, dodajDni, normalizuj } from './util.js';
 import { KOLEJNOSC_KATEGORII, GRUPY_POZIOMOW, KATEGORIE_FORMULARZA_DOMYSLNE } from './konfiguracja.js';
 
 export const dane = {
-  zamowienia: [], pozycje: [], klienci: [], cennik: [], produkty: [], grupy: [], magazyny: [],
+  zamowienia: [], pozycje: [], klienci: [], wszyscyKlienci: [], cennik: [], produkty: [], grupy: [], magazyny: [],
   wysylki: [], grupyCenowe: [], cenySpecjalne: [], zKatalogu: false,
   poziomy: [], cenyPoziomow: new Map(), ustawienia: new Map(), stanyZDnia: '',
   instrukcje: [], zapotrzebowania: [], inwentaryzacje: [], wydarzenia: [], listaMailingowa: [], zapisyWydarzen: [],
@@ -61,7 +61,9 @@ export async function wczytaj() {
   dane.zapotrzebowania = zp.filter(z => z.typ !== 'inwentaryzacja').sort(wgDaty);
   dane.zamowienia = z.sort((a, b) => String(b.data).localeCompare(String(a.data)) || String(b.utworzono || '').localeCompare(String(a.utworzono || '')) || numerZam(b.id) - numerZam(a.id));
   dane.pozycje = p;
-  dane.klienci = k.sort((a, b) => String(a.nazwa || '').localeCompare(String(b.nazwa || ''), 'pl'));
+  // klienci połączeni z innym (duplikaty) zostają w arkuszu z „polaczony_z”, ale nie ma ich na listach
+  dane.wszyscyKlienci = k;
+  dane.klienci = k.filter(x => !x.polaczony_z).sort((a, b) => String(a.nazwa || '').localeCompare(String(b.nazwa || ''), 'pl'));
   dane.wysylki = wys.sort((a, b) => num(a.kolejnosc) - num(b.kolejnosc) || String(a.nazwa).localeCompare(String(b.nazwa), 'pl'));
   dane.grupyCenowe = gr.sort((a, b) => num(a.rabat_proc) - num(b.rabat_proc));
   dane.cenySpecjalne = cs;
@@ -262,7 +264,93 @@ export const pozycjeZamowienia = id => dane.pozycje
   .sort((a, b) => numerZam(a.id) - numerZam(b.id));
 
 export const zamowienie = id => dane.zamowienia.find(z => String(z.id) === String(id));
-export const klient = id => (id ? dane.klienci.find(k => String(k.id) === String(id)) : null);
+export function klient(id) {
+  if (!id) return null;
+  let k = dane.klienci.find(x => String(x.id) === String(id));
+  // zamówienie wskazuje klienta, którego połączono z innym → pokazujemy tego, z którym go połączono
+  for (let i = 0; !k && i < 5; i++) {
+    const stary = (dane.wszyscyKlienci || []).find(x => String(x.id) === String(id));
+    if (!stary?.polaczony_z) return null;
+    id = stary.polaczony_z;
+    k = dane.klienci.find(x => String(x.id) === String(id));
+  }
+  return k || null;
+}
+
+// ───────────────────────── podpowiedzi i duplikaty klientów ─────────────────────────
+
+/** Nazwa do porównań: małe litery, bez ogonków, kropek i podwójnych spacji („Ołtarzewska” = „oltarzewska”). */
+export const kluczNazwy = n => normalizuj(n).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+
+const ileZamowienKlienta = () => {
+  const m = new Map();
+  dane.zamowienia.forEach(z => m.set(String(z.klient_id), (m.get(String(z.klient_id)) || 0) + 1));
+  return m;
+};
+
+/** Klienci pasujący do wpisanego tekstu (nazwa, telefon, e-mail) – najpierw ci, których nazwa zaczyna się od tekstu. */
+export function podpowiedziKlientow(tekst, { limit = 5, filtr = null } = {}) {
+  const t = kluczNazwy(tekst);
+  const cyfry = String(tekst || '').replace(/\D/g, '');
+  if (t.length < 2 && cyfry.length < 3) return [];
+  const slowa = t.split(' ').filter(Boolean);
+  const ile = ileZamowienKlienta();
+  return dane.klienci.filter(k => (!filtr || filtr(k)) && (
+      (slowa.length && slowa.every(s => kluczNazwy([k.nazwa, k.email].join(' ')).includes(s)))
+      || (cyfry.length >= 3 && String(k.telefon || '').replace(/\D/g, '').includes(cyfry))))
+    .map(k => ({ k, start: kluczNazwy(k.nazwa).startsWith(t) ? 1 : 0, n: ile.get(String(k.id)) || 0 }))
+    .sort((a, b) => b.start - a.start || b.n - a.n || String(a.k.nazwa).localeCompare(String(b.k.nazwa), 'pl'))
+    .slice(0, limit).map(x => x.k);
+}
+
+/** Ten sam klient po nazwie – tylko gdy telefon i e-mail się nie wykluczają. */
+export function klientPoNazwie(nazwa, telefon = '', email = '') {
+  const n = kluczNazwy(nazwa);
+  if (!n) return null;
+  const tel = telefonE164(telefon);
+  const em = String(email || '').trim().toLowerCase();
+  const ile = ileZamowienKlienta();
+  return dane.klienci
+    .filter(k => kluczNazwy(k.nazwa) === n
+      && !(tel && k.telefon && telefonE164(k.telefon) !== tel)
+      && !(em && k.email && String(k.email).trim().toLowerCase() !== em))
+    .sort((a, b) => (ile.get(String(b.id)) || 0) - (ile.get(String(a.id)) || 0))[0] || null;
+}
+
+function odleglosc(a, b) {
+  if (Math.abs(a.length - b.length) > 1) return 2;
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) {
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  }
+  return d[a.length][b.length];
+}
+
+/**
+ * Możliwe duplikaty: ten sam telefon albo e-mail, albo prawie ta sama nazwa (różni się wielkością liter, ogonkiem
+ * lub jedną literą: „Nieznane” / „Nieznany”), o ile telefony i e-maile się nie wykluczają. Zwraca grupy klientów.
+ */
+export function duplikatyKlientow() {
+  const l = dane.klienci;
+  const rodzic = l.map((_, i) => i);
+  const znajdz = i => (rodzic[i] === i ? i : (rodzic[i] = znajdz(rodzic[i])));
+  const info = l.map(k => ({ n: kluczNazwy(k.nazwa), t: telefonE164(k.telefon), e: String(k.email || '').trim().toLowerCase() }));
+  for (let i = 0; i < l.length; i++) for (let j = i + 1; j < l.length; j++) {
+    const a = info[i], b = info[j];
+    const tenSamTel = a.t && a.t === b.t;
+    const tenSamMail = a.e && a.e === b.e;
+    const sprzeczne = (a.t && b.t && a.t !== b.t) || (a.e && b.e && a.e !== b.e);
+    const podobnaNazwa = a.n && b.n && (a.n === b.n || (Math.min(a.n.length, b.n.length) >= 5 && odleglosc(a.n, b.n) <= 1));
+    if (tenSamTel || tenSamMail || (podobnaNazwa && !sprzeczne)) rodzic[znajdz(i)] = znajdz(j);
+  }
+  const grupy = new Map();
+  l.forEach((k, i) => { const r = znajdz(i); grupy.set(r, [...(grupy.get(r) || []), k]); });
+  return [...grupy.values()].filter(g => g.length > 1);
+}
+
+/** Ile zamówień ma klient (do wyboru, którego zostawić przy łączeniu). */
+export const zamowieniaKlienta = id => dane.zamowienia.filter(z => String(z.klient_id) === String(id));
 
 const KLUCZ_LICZNIKA = 'or-stoisko-licznik:';
 

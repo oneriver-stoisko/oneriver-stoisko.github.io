@@ -3,7 +3,7 @@
 
 import { $, esc, kwotaTxt, num, liczba, liczbaNaTekst, uuid, toast, okno } from './util.js';
 import { dane, wczytaj, aktywny, kategorieFormularza, ustawienieTekst } from './dane.js';
-import { ADRES_FORMULARZA, PRZYKLADOWE_WYSYLKI, TRANSPORT_DOMYSLNY, SYMBOL_TRANSPORTU } from './konfiguracja.js';
+import { ADRES_FORMULARZA, PRZYKLADOWE_WYSYLKI, TRANSPORT_DOMYSLNY, SYMBOL_TRANSPORTU, KOLEJNOSC_KATEGORII } from './konfiguracja.js';
 import { wywolaj, ustawienia, wersjaApi } from './api.js';
 import * as sync from './sync.js';
 
@@ -20,6 +20,7 @@ function htmlWysylek() {
       <label class="pole"><span class="etykieta">Kolejność</span><input name="kolejnosc" inputmode="numeric" value="${esc(w.kolejnosc ?? '')}"></label>
       <label class="pole szeroka"><span class="etykieta">Opis dla klienta</span><input name="opis" value="${esc(w.opis || '')}" autocomplete="off"></label>
       <label class="przelacznik"><input type="checkbox" name="wymaga_adresu" ${prawda(w.wymaga_adresu) ? 'checked' : ''}> wymaga adresu / paczkomatu</label>
+      <label class="przelacznik"><input type="checkbox" name="pobranie" ${prawda(w.pobranie) ? 'checked' : ''}> za pobraniem (klient płaci przy odbiorze)</label>
       <label class="przelacznik"><input type="checkbox" name="aktywna" ${aktywny(w) ? 'checked' : ''}> widoczna dla klientów</label>
       <div class="przyciski"><button type="submit">Zapisz</button></div>
     </form></li>`).join('')}</ul>`;
@@ -57,6 +58,28 @@ function render() {
       ${(() => { const n = dane.zapotrzebowania.filter(z => (z.status || 'nowe') === 'nowe').length; const s = dane.zapotrzebowania.filter(z => z.status === 'sprawdzone').length;
         return `<p>${n ? `<b>${n} ${n === 1 ? 'nowe zapotrzebowanie' : 'nowe zapotrzebowania'}</b>. ` : 'Brak nowych zapotrzebowań. '}${s ? `<b>${s} do zatwierdzenia</b> (policzone przez Grażynkę). ` : ''}Instrukcji: ${dane.instrukcje.length}.</p>`; })()}
       <div class="przyciski"><a class="przycisk" href="#potrzebuje">Zapotrzebowanie i przesunięcia (MM)</a><a class="przycisk drugorzedny" href="#inwentaryzacja">Inwentaryzacja${dane.inwentaryzacje.some(z => z.status === 'policzone') ? ' (do zatwierdzenia)' : ''}</a><a class="przycisk drugorzedny" href="#instrukcje">Instrukcje dla Grażynki</a></div>
+    </article>
+
+    <article class="panel" id="formularz-klienta">
+      <h2>Formularz zamówień dla klientów</h2>
+      <p>Klient sam wybiera produkty (ze zdjęciami i ilościami), dostawę i podaje dane – krok po kroku. Zamówienie przychodzi do Ciebie jako „nowe” z powiadomieniem.</p>
+      <p class="podpowiedz">Link ogólny (ceny katalogowe): <a href="${esc(ADRES_FORMULARZA)}" target="_blank" rel="noopener">${esc(ADRES_FORMULARZA)}</a><br>
+        Link z cenami i danymi konkretnego klienta wyślesz z jego karty (Klienci → klient → „Wyślij link do zamówienia”).</p>
+      <div class="przyciski"><button type="button" data-akcja="udostepnij-formularz">Wyślij link…</button><button type="button" class="drugorzedny" data-akcja="kopiuj-formularz">Kopiuj link</button></div>
+      <form data-forma="kategorie" class="edycja-wiersza">
+        <span class="etykieta">Kategorie w formularzu</span>
+        <div class="chipy">${KOLEJNOSC_KATEGORII.map(k => `<label class="przelacznik"><input type="checkbox" name="kat" value="${esc(k)}" ${kategorieFormularza().includes(k) ? 'checked' : ''}> ${esc(k)}</label>`).join('')}</div>
+        <div class="przyciski"><button type="submit" class="drugorzedny">Zapisz kategorie</button></div>
+      </form>
+    </article>
+
+    <article class="panel" id="cennik-dostaw">
+      <h2>Cennik dostaw</h2>
+      <p class="podpowiedz">Te metody i ceny widzi klient w formularzu. „Darmowa od” – od jakiej kwoty zakupów dostawa jest gratis (puste = nigdy). Zmiana działa w formularzu po ok. 10 minutach.</p>
+      ${htmlWysylek()}
+      ${PRZYKLADOWE_WYSYLKI.some(w => !istniejace.has(w.nazwa)) ? `<p class="etykieta">Dodaj gotową metodę:</p>
+      <div class="chipy">${PRZYKLADOWE_WYSYLKI.map((w, i) => istniejace.has(w.nazwa) ? '' : `<button type="button" class="chip" data-akcja="dodaj-wysylke" data-i="${i}">+ ${esc(w.nazwa)}</button>`).join('')}</div>` : ''}
+      <div class="przyciski"><button type="button" class="drugorzedny" data-akcja="dodaj-wysylke" data-i="-1">+ Własna metoda</button></div>
     </article>
 
     <article class="panel">
@@ -131,7 +154,7 @@ async function submit(form) {
     if (Number.isNaN(darmowa)) return toast('Sprawdź kwotę „darmowa od”.', 'blad');
     await zapiszWiersz('WYSYLKI', { ...w, nazwa: f.nazwa.value.trim(), opis: f.opis.value.trim(), cena, darmowa_od: darmowa,
       kolejnosc: f.kolejnosc.value.trim() === '' ? '' : Number(f.kolejnosc.value) || 0,
-      wymaga_adresu: f.wymaga_adresu.checked, aktywna: f.aktywna.checked }, `Zapisano: ${f.nazwa.value.trim()}.`);
+      wymaga_adresu: f.wymaga_adresu.checked, pobranie: f.pobranie.checked, aktywna: f.aktywna.checked }, `Zapisano: ${f.nazwa.value.trim()}.`);
   } else if (form.dataset.forma === 'grupa' || form.dataset.forma === 'nowa-grupa') {
     const nowa = form.dataset.forma === 'nowa-grupa';
     const g = nowa ? { id: uuid(), opis: '' } : dane.grupyCenowe.find(x => String(x.id) === form.dataset.id);
@@ -149,9 +172,13 @@ async function klik(e) {
   const akcja = b.dataset.akcja;
   if (akcja === 'kopiuj-formularz') {
     try { await navigator.clipboard.writeText(ADRES_FORMULARZA); toast('Skopiowano link do formularza.', 'ok'); } catch { toast(ADRES_FORMULARZA, '', 8000); }
+  } else if (akcja === 'udostepnij-formularz') {
+    const tresc = `Zamówienie ONE RIVER – wybierz produkty i dostawę tutaj: ${ADRES_FORMULARZA}`;
+    if (navigator.share) { try { await navigator.share({ title: 'Zamówienie ONE RIVER', text: tresc }); } catch { /* anulowano */ } }
+    else { try { await navigator.clipboard.writeText(tresc); toast('Skopiowano wiadomość z linkiem.', 'ok'); } catch { toast(tresc, '', 8000); } }
   } else if (akcja === 'dodaj-wysylke') {
     const wzor = PRZYKLADOWE_WYSYLKI[Number(b.dataset.i)] || { nazwa: 'Nowa metoda', opis: '', wymaga_adresu: true };
-    await zapiszWiersz('WYSYLKI', { id: uuid(), nazwa: wzor.nazwa, opis: wzor.opis, cena: 0, darmowa_od: '', wymaga_adresu: wzor.wymaga_adresu,
+    await zapiszWiersz('WYSYLKI', { id: uuid(), nazwa: wzor.nazwa, opis: wzor.opis, cena: 0, darmowa_od: '', wymaga_adresu: wzor.wymaga_adresu, pobranie: Boolean(wzor.pobranie),
       kolejnosc: dane.wysylki.length + 1, aktywna: false }, `Dodano: ${wzor.nazwa}. Wpisz cenę i zaznacz „widoczna dla klientów”.`);
   } else if (akcja === 'odswiez-katalog') {
     if (!navigator.onLine) return toast('Odświeżenie katalogu wymaga internetu.', 'blad');

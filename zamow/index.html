@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0D4240">
+  <meta name="description" content="Zamów rapé, akcesoria i zielarnię ONE RIVER – wybierz produkty, sposób dostawy i gotowe.">
+  <title>Zamówienie · One River</title>
+  <link rel="icon" href="../icons/icon-192.png">
+  <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&display=swap">
+  <link rel="stylesheet" href="zamow.css">
+</head>
+<body>
+  <header class="gora">
+    <span class="marka"><img src="../icons/icon-192.png" alt="" width="34" height="34"><span><b>ONE RIVER</b><small>zamówienie</small></span></span>
+    <button type="button" class="kod-przycisk" id="kod-przycisk" data-akcja="kod">Mam kod klienta</button>
+  </header>
+  <main id="widok" tabindex="-1"><p class="laduje">Wczytuję ofertę…</p></main>
+  <div id="pasek" class="pasek" hidden></div>
+  <footer class="stopka"><p>ONE RIVER sp. z o.o. · Warszawa · <a href="https://oneriver.pl/" target="_blank" rel="noopener">oneriver.pl</a></p></footer>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <dialog id="okno"></dialog>
+  <script type="module" src="zamow.js"></script>
+</body>
+</html>

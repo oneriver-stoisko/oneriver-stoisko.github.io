@@ -716,3 +716,19 @@ body.prosty .gora .sync { margin-left: auto; }
 .inw-tabela tr.inw-suma td { background: var(--papier-2); }
 .inw-licz .inw-pole { width: 68px; flex: none; padding: 4px; }
 .inw-w-dol .inw-wynik, .inw-w-dol .inw-zgadza { flex: none; }
+
+/* podpowiedzi stałych klientów */
+.podp-kl { list-style: none; margin: -4px 0 12px; padding: 0; border: 1px solid var(--linia); border-radius: var(--r); background: var(--papier); overflow: hidden; }
+.podp-kl li + li { border-top: 1px solid var(--linia); }
+.podp-kl button { all: unset; box-sizing: border-box; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; width: 100%; padding: 12px 14px; cursor: pointer; color: var(--atrament); font: inherit; }
+.podp-kl button:hover, .podp-kl button:focus-visible { background: var(--papier-2); outline: none; }
+.podp-kl small { color: var(--szary); font-size: 13px; white-space: nowrap; }
+body.prosty .podp-kl button { padding: 14px 16px; font-size: 18px; }
+
+/* duplikaty klientów */
+a.dup-pasek { display: block; text-decoration: none; font-weight: 700; }
+.dup-lista { list-style: none; margin: 0 0 12px; padding: 0; }
+.dup-lista li + li { border-top: 1px solid var(--linia); }
+.dup-klient { display: flex; gap: 12px; align-items: flex-start; padding: 10px 2px; cursor: pointer; }
+.dup-klient input { width: 22px; height: 22px; margin-top: 2px; flex: none; accent-color: var(--rzeka); }
+.dup-klient small { display: block; color: var(--szary); font-size: 13px; margin-top: 2px; }

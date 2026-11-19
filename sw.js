@@ -1,11 +1,11 @@
 // Service worker stoiska: trzyma pliki aplikacji w pamięci urządzenia, żeby działała bez internetu.
 // Przy każdej nowej wersji zmień WERSJA (i WERSJA w js/konfiguracja.js).
-const WERSJA = 'or-stoisko-0.16.0';
+const WERSJA = 'or-stoisko-0.17.0';
 const OCR = 'or-stoisko-ocr';   // pliki rozpoznawania tekstu – pobierane przy pierwszym użyciu, potem z pamięci
 const PLIKI = [
   './', './index.html', './css/stoisko.css', './manifest.webmanifest',
   './js/app.js', './js/api.js', './js/db.js', './js/sync.js', './js/util.js', './js/dane.js', './js/konfiguracja.js',
-  './js/nowe.js', './js/lista.js', './js/zamowienie.js', './js/ustawienia.js', './js/wiadomosc.js', './js/klienci.js', './js/sklep.js', './js/poziomy.js', './js/inpost.js', './js/epp.js', './js/eksport-epp.js', './js/prosty.js', './js/wysylki.js', './js/potrzebuje.js', './js/instrukcje.js', './js/powiadomienia.js', './js/mailing.js', './js/przesuniecia.js', './js/inwentaryzacja.js', './lista.html', './vendor/qrcode.js',
+  './js/nowe.js', './js/lista.js', './js/zamowienie.js', './js/ustawienia.js', './js/wiadomosc.js', './js/klienci.js', './js/sklep.js', './js/poziomy.js', './js/inpost.js', './js/epp.js', './js/eksport-epp.js', './js/prosty.js', './js/wysylki.js', './js/potrzebuje.js', './js/instrukcje.js', './js/powiadomienia.js', './js/mailing.js', './js/przesuniecia.js', './js/inwentaryzacja.js', './js/podpowiedzi.js', './lista.html', './vendor/qrcode.js',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/icon-maskable-512.png',
 ];
 const CZCIONKI = 'or-stoisko-czcionki';
@@ -54,6 +54,8 @@ self.addEventListener('fetch', e => {
   }
   // strona „Dane do płatności” dla klientów – zawsze z sieci, nie podmieniamy jej na Stoisko
   if (req.mode === 'navigate' && /\/zaplata\.html$/.test(url.pathname)) return;
+  // formularz zamówień dla klientów (/zamow/) działa bez service workera Stoiska – zawsze prosto z sieci
+  if (/\/zamow\//.test(url.pathname)) return;
   // formularz listy mailingowej (tablet na stoisku) – z sieci, a bez internetu z pamięci urządzenia
   if (req.mode === 'navigate' && /\/lista\.html$/.test(url.pathname)) {
     e.respondWith(fetch(req).then(r => { if (r.ok) { const kopia = r.clone(); caches.open(WERSJA).then(c => c.put('./lista.html', kopia)); } return r; })

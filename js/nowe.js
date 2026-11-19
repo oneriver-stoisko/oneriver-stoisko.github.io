@@ -5,7 +5,8 @@
 // (np. część gotówką, część BLIK-iem). Zapis działa bez internetu; potem SMS/WhatsApp do klienta i wiadomość do grupy.
 
 import { $, $$, esc, zaokr, kwotaTxt, iloscTxt, liczba, liczbaNaTekst, uuid, dataLok, toast, num, odmiana, okno } from './util.js';
-import { dane, wczytaj, szukajProduktow, nastepnyNumer, zapamietajNumer, klientPoTelefonie, telefonE164, klient as klientId,
+import { htmlPodpowiedzi } from './podpowiedzi.js';
+import { dane, wczytaj, szukajProduktow, klientPoNazwie, kluczNazwy, nastepnyNumer, zapamietajNumer, klientPoTelefonie, telefonE164, klient as klientId,
   produktSymbolu, cenaKlienta, opisCenKlienta, zamowienie, pozycjeZamowienia, ustawienieTekst } from './dane.js';
 import { ustawienia, gotowe, wywolaj } from './api.js';
 import { FORMY, POBRANIE, STATUSY, OSOBY_WYSYLKI, SYMBOL_TRANSPORTU, TRANSPORT_DOMYSLNY, czyTransport, symbolMagazynu, MAGAZYNY, PRZEWOZNICY, MIEDZYNARODOWY, czyInPost } from './konfiguracja.js';
@@ -343,8 +344,8 @@ export function render(arg) {
             <input data-pole="telefon" type="tel" inputmode="tel" autocomplete="off" value="${esc(s.telefon)}" placeholder="np. 600 100 200">
             <span class="podpowiedz" id="opis-klienta">${esc(opisKlienta())}</span></label>
           <label class="pole"><span class="etykieta">Imię i nazwisko</span>
-            <input data-pole="nazwa-klienta" autocomplete="off" list="lista-klientow" value="${esc(s.nazwa)}" placeholder="Wpisz albo wybierz stałego klienta">
-            <datalist id="lista-klientow">${dane.klienci.filter(k => k.nazwa).map(k => `<option value="${esc(k.nazwa)}">`).join('')}</datalist></label>
+            <input data-pole="nazwa-klienta" autocomplete="off" value="${esc(s.nazwa)}" placeholder="Wpisz – podpowiem stałych klientów"></label>
+          <div id="podp-kl"></div>
           <label class="pole"><span class="etykieta">E-mail (nieobowiązkowo)</span>
             <input data-pole="email" type="email" inputmode="email" autocomplete="off" value="${esc(s.email)}"></label>
           <div id="jezyk">${htmlJezyka()}</div>
@@ -499,11 +500,13 @@ function wejscie(e) {
       if (!s.email && k.email) { s.email = k.email; $('[data-pole="email"]').value = k.email; }
     }
     ustawKlienta(k || (biezacyKlient() && !telefonE164(biezacyKlient().telefon) ? biezacyKlient() : null));
+    const pp = $('#podp-kl'); if (pp) pp.innerHTML = k ? '' : htmlPodpowiedzi(v, { wybranyId: s.klientId });
     $('#opis-klienta').textContent = opisKlienta();
     const j = $('#jezyk'); if (j && !s.jezyk) j.innerHTML = htmlJezyka();
   } else if (pole === 'nazwa-klienta') {
     s.nazwa = v;
-    const k = dane.klienci.find(x => x.nazwa && String(x.nazwa).trim().toLowerCase() === v.trim().toLowerCase());
+    const pp = $('#podp-kl'); if (pp) pp.innerHTML = htmlPodpowiedzi(v, { wybranyId: s.klientId });
+    const k = dane.klienci.find(x => x.nazwa && kluczNazwy(x.nazwa) === kluczNazwy(v));
     if (k && String(k.id) !== s.klientId) {
       ustawKlienta(k);
       if (k.telefon) { s.telefon = telefonE164(k.telefon) || k.telefon; $('[data-pole="telefon"]').value = s.telefon; }
@@ -566,6 +569,19 @@ async function klik(e) {
   const b = e.target.closest('[data-akcja]');
   if (!b) return;
   const akcja = b.dataset.akcja;
+  if (akcja === 'wybierz-klienta') {
+    const k = klientId(b.dataset.id);
+    if (!k) return;
+    ustawKlienta(k);
+    s.nazwa = k.nazwa || '';
+    if (k.telefon) s.telefon = telefonE164(k.telefon) || k.telefon;
+    if (k.email) s.email = k.email;
+    [['nazwa-klienta', s.nazwa], ['telefon', s.telefon], ['email', s.email]].forEach(([pole, v]) => { const el = $(`[data-pole="${pole}"]`); if (el) el.value = v; });
+    $('#podp-kl').innerHTML = '';
+    $('#opis-klienta').textContent = opisKlienta();
+    zachowaj();
+    return;
+  }
   if (akcja === 'dodaj') dodaj(b.dataset.symbol);
   else if (akcja === 'wyczysc-szukaj') {
     s.szukaj = ''; zachowaj();
@@ -738,7 +754,8 @@ async function zapiszStan() {
     const nazwa = s.nazwa.trim();
     const adresKlienta = s.typ === 'wysylka' ? [s.paczkomat.trim(), s.adres.trim()].filter(Boolean).join(', ') : '';
     if (tel || nazwa || email) {
-      const k = biezacyKlient() || (tel && klientPoTelefonie(tel)) || (email && dane.klienci.find(x => String(x.email || '').toLowerCase() === email.toLowerCase())) || null;
+      const k = biezacyKlient() || (tel && klientPoTelefonie(tel)) || (email && dane.klienci.find(x => String(x.email || '').toLowerCase() === email.toLowerCase()))
+        || klientPoNazwie(nazwa, tel, email) || null;
       if (k) {
         klientIdZ = k.id;
         const uzup = {};
@@ -819,9 +836,9 @@ async function zapiszStan() {
  * koszyk – pozycje w formacie ekranu „Nowe” ({ symbol, nazwa, grupa, jm, cena_cennik, iloscTxt, cenaTxt }).
  * platnosci – [{ forma, kwotaTxt, zaplacone }]; ostatnia bez kwoty = reszta (podzielona płatność).
  */
-export async function zapiszProste({ koszyk, forma, zaplacone, platnosci, telefon, nazwa, magazyn }) {
+export async function zapiszProste({ koszyk, forma, zaplacone, platnosci, telefon, nazwa, magazyn, klientId: idKlienta }) {
   const poprzedni = s;
-  s = { ...pusty(), typ: 'miejsce', magazyn: magazyn || '', telefon: telefon || '', nazwa: nazwa || '',
+  s = { ...pusty(), typ: 'miejsce', magazyn: magazyn || '', telefon: telefon || '', nazwa: nazwa || '', klientId: idKlienta || '',
     koszyk: koszyk.map(p => ({ k: uuid(), posId: '', ...p })),
     platnosci: (platnosci && platnosci.length ? platnosci : [{ forma, kwotaTxt: '', zaplacone }])
       .map((x, i, l) => ({ k: uuid(), forma: x.forma, kwotaTxt: i === l.length - 1 ? '' : String(x.kwotaTxt || ''), zaplacone: Boolean(x.zaplacone) })) };

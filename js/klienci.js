@@ -3,9 +3,10 @@
 
 import { $, $$, esc, kwotaTxt, num, zaokr, liczba, liczbaNaTekst, uuid, normalizuj, toast, okno, odmiana, dataKrotko } from './util.js';
 import { dane, wczytaj, klient, telefonE164, telefonCzytelny, grupaCenowa, rabatKlienta, cenySpecjalneKlienta, produktSymbolu,
-  aktywny, nowyKodKlienta, opisCenKlienta, poziomyGrupy } from './dane.js';
+  aktywny, nowyKodKlienta, opisCenKlienta, poziomyGrupy, duplikatyKlientow, zamowieniaKlienta } from './dane.js';
 import { ADRES_FORMULARZA, NAZWY_GRUP_POZIOMOW } from './konfiguracja.js';
 import * as sync from './sync.js';
+import { linkSms, linkWhatsApp, otworzLink } from './wiadomosc.js';
 
 const stan = { szukaj: '', tylkoZCenami: false, szukajProduktu: '' };
 
@@ -29,6 +30,7 @@ function renderListy() {
   $('#widok').innerHTML = `
   <section class="ekran">
     <header class="naglowek-zam"><h1>Klienci</h1><a class="przycisk" href="#klient/nowy">+ Nowy klient</a></header>
+    ${(() => { const n = grupyDuplikatow().length; return n ? `<a class="pasek-info dup-pasek" href="#klienci/duplikaty">⚠︎ ${n} ${odmiana(n, 'możliwy duplikat', 'możliwe duplikaty', 'możliwych duplikatów')} – sprawdź i połącz →</a>` : ''; })()}
     <div class="chipy male filtry">
       <button type="button" class="chip" data-filtr="wszyscy" aria-pressed="${!stan.tylkoZCenami}">Wszyscy (${dane.klienci.length})</button>
       <button type="button" class="chip" data-filtr="ceny" aria-pressed="${stan.tylkoZCenami}">Z rabatem lub kodem</button>
@@ -86,7 +88,6 @@ function renderKlienta(id) {
   }
   const k = edytowany;
   const grupy = dane.grupyCenowe.filter(aktywny);
-  const link = k.kod ? `${ADRES_FORMULARZA}#kod=${encodeURIComponent(k.kod)}` : '';
   $('#widok').innerHTML = `
   <section class="ekran ustawienia">
     <header class="naglowek-zam"><div><span class="etykieta">${k._nowy ? 'Nowy klient' : 'Klient'}</span><h1>${esc(k.nazwa || 'Bez nazwy')}</h1></div>
@@ -114,12 +115,16 @@ function renderKlienta(id) {
       <label class="pole"><span class="etykieta">Własny rabat w % (dla produktów bez ceny w poziomie; zastępuje rabat grupy)</span>
         <input name="rabat_proc" inputmode="decimal" autocomplete="off" value="${esc(k.rabat_proc === '' || k.rabat_proc == null ? '' : String(k.rabat_proc).replace('.', ','))}" placeholder="np. 15"></label>
 
-      <h2>Kod do formularza zamówień</h2>
-      <p class="podpowiedz">Klient wpisuje kod w formularzu i widzi swoje ceny.</p>
+      <h2>Zamówienie przez link</h2>
+      <p class="podpowiedz">Wyślij klientowi link – sam wybierze produkty i dostawę, zobaczy swoje ceny, a jego dane wpiszą się same.</p>
+      ${k._nowy ? '' : `<div class="przyciski">
+        <button type="button" data-akcja="wyslij-link" data-kanal="sms" ${telefonE164(k.telefon) ? '' : 'disabled'}>📱 Wyślij link SMS-em</button>
+        <button type="button" class="drugorzedny" data-akcja="wyslij-link" data-kanal="wa" ${telefonE164(k.telefon) ? '' : 'disabled'}>WhatsApp</button>
+        <button type="button" class="drugorzedny" data-akcja="wyslij-link" data-kanal="kopiuj">Kopiuj link</button></div>
+      ${telefonE164(k.telefon) ? '' : '<p class="podpowiedz">Wpisz telefon klienta, żeby wysłać SMS albo WhatsApp.</p>'}`}
+      <span class="etykieta">Kod klienta (w linku)</span>
       <div class="z-przyciskiem"><input name="kod" autocomplete="off" autocapitalize="characters" value="${esc(k.kod)}" placeholder="brak kodu">
         <button type="button" class="drugorzedny" data-akcja="nowy-kod">${k.kod ? 'Zmień' : 'Utwórz kod'}</button></div>
-      ${link ? `<p class="podpowiedz">Link z kodem: <a href="${esc(link)}" target="_blank" rel="noopener">${esc(link)}</a></p>
-        <div class="przyciski"><button type="button" class="drugorzedny" data-akcja="kopiuj-link">Kopiuj link</button></div>` : ''}
 
       <label class="pole"><span class="etykieta">Uwagi</span><textarea name="uwagi" rows="2">${esc(k.uwagi)}</textarea></label>
       <div class="przyciski"><button type="submit">Zapisz klienta</button></div>
@@ -130,8 +135,71 @@ function renderKlienta(id) {
   </section>`;
 }
 
+// ───────────────────────── duplikaty ─────────────────────────
+
+const KLUCZ_ROZNYCH = 'or-stoisko-rozni-klienci';
+const rozni = () => { try { return new Set(JSON.parse(localStorage.getItem(KLUCZ_ROZNYCH)) || []); } catch { return new Set(); } };
+const kluczGrupy = g => g.map(k => String(k.id)).sort().join('|');
+const grupyDuplikatow = () => { const r = rozni(); return duplikatyKlientow().filter(g => !r.has(kluczGrupy(g))); };
+const wybrani = {};   // klucz grupy → id klienta, którego zostawiamy
+
+/** Którego zostawić: z największą liczbą zamówień, potem z pełniejszymi danymi, potem z polskimi znakami w nazwie. */
+function domyslnyGlowny(g) {
+  const punkty = k => zamowieniaKlienta(k.id).length * 10 + ['telefon', 'email', 'adres', 'kod'].filter(c => String(k[c] || '').trim()).length * 3
+    + (/[ąćęłńóśźż]/i.test(k.nazwa || '') ? 1 : 0) + (/^[A-ZĄĆĘŁŃÓŚŹŻ]/.test(k.nazwa || '') && !/^[A-ZĄĆĘŁŃÓŚŹŻ ]+$/.test(k.nazwa || '') ? 1 : 0);
+  return [...g].sort((a, b) => punkty(b) - punkty(a))[0];
+}
+
+function renderDuplikatow() {
+  const grupy = grupyDuplikatow();
+  $('#widok').innerHTML = `
+  <section class="ekran">
+    <header class="naglowek-zam"><div><span class="etykieta">Klienci</span><h1>Możliwe duplikaty</h1></div><a class="kontekst" href="#klienci">← Klienci</a></header>
+    <p class="podpowiedz">Zaznacz, którego klienta zostawić. Zamówienia i ceny pozostałych przejdą na niego, a brakujące dane (telefon, e-mail, adres) zostaną uzupełnione.</p>
+    ${grupy.length ? grupy.map(g => {
+      const kg = kluczGrupy(g);
+      const glowny = wybrani[kg] || domyslnyGlowny(g).id;
+      return `<article class="panel dup-grupa" data-grupa="${esc(kg)}">
+        <ul class="dup-lista">${g.map(k => { const n = zamowieniaKlienta(k.id).length; return `<li><label class="dup-klient">
+          <input type="radio" name="g-${esc(kg)}" value="${esc(k.id)}" ${String(k.id) === String(glowny) ? 'checked' : ''} data-akcja="dup-wybierz">
+          <span><b>${esc(k.nazwa || 'bez nazwy')}</b>
+            <small>${esc([telefonCzytelny(k.telefon), k.email, k.adres].filter(Boolean).join(' · ') || 'bez telefonu i e-maila')}</small>
+            <small>${n} ${odmiana(n, 'zamówienie', 'zamówienia', 'zamówień')} · dodany ${esc(dataKrotko(String(k.utworzono || '').slice(0, 10)))}${k.kto ? ' · ' + esc(k.kto) : ''}</small></span>
+        </label></li>`; }).join('')}</ul>
+        <div class="przyciski"><button type="button" data-akcja="dup-polacz">Połącz w jednego</button>
+          <button type="button" class="drugorzedny" data-akcja="dup-rozni">To różne osoby</button></div>
+      </article>`; }).join('') : '<p class="pusto">Nie widzę duplikatów. 👍</p>'}
+  </section>`;
+}
+
+async function polacz(art) {
+  const g = grupyDuplikatow().find(x => kluczGrupy(x) === art.dataset.grupa);
+  if (!g) return;
+  const idG = $('input[type=radio]:checked', art)?.value;
+  const glowny = g.find(k => String(k.id) === idG);
+  const inni = g.filter(k => k !== glowny);
+  const idInnych = new Set(inni.map(k => String(k.id)));
+  const nowy = { ...glowny };
+  ['telefon', 'email', 'adres', 'nip', 'miasto', 'kod', 'grupa', 'rabat_proc', 'poziom_rape', 'poziom_zielarnia', 'symbol_sgt'].forEach(c => {
+    if (String(nowy[c] ?? '').trim() === '') { const z = inni.find(k => String(k[c] ?? '').trim() !== ''); if (z) nowy[c] = z[c]; }
+  });
+  const uwagi = [nowy.uwagi, ...inni.map(k => k.uwagi)].map(u => String(u || '').trim()).filter(Boolean);
+  nowy.uwagi = [...new Set(uwagi)].join(' · ');
+  const zam = dane.zamowienia.filter(z => idInnych.has(String(z.klient_id)));
+  const ceny = dane.cenySpecjalne.filter(c => idInnych.has(String(c.klient_id)));
+  await sync.zapisz([
+    { karta: 'KLIENCI', wiersze: [nowy, ...inni.map(k => ({ ...k, polaczony_z: glowny.id, kod: nowy.kod === k.kod ? '' : k.kod }))] },
+    { karta: 'ZAMOWIENIA', wiersze: zam.map(z => ({ ...z, klient_id: glowny.id })) },
+    { karta: 'CENY_SPECJALNE', wiersze: ceny.map(c => ({ ...c, klient_id: glowny.id })) },
+  ]);
+  await wczytaj();
+  toast(`Połączono w: ${glowny.nazwa}${zam.length ? ` (przeniesiono ${zam.length} ${odmiana(zam.length, 'zamówienie', 'zamówienia', 'zamówień')})` : ''}.`, 'ok', 4000);
+  renderDuplikatow();
+}
+
 function render(arg) {
   if (location.hash.startsWith('#klient/')) renderKlienta(arg || 'nowy');
+  else if (location.hash.startsWith('#klienci/duplikaty')) { edytowany = null; renderDuplikatow(); }
   else { edytowany = null; renderListy(); }
 }
 
@@ -201,12 +269,46 @@ async function klik(e) {
   const b = e.target.closest('[data-akcja]');
   if (!b) return;
   const akcja = b.dataset.akcja;
+  if (akcja === 'dup-wybierz') { wybrani[b.closest('[data-grupa]').dataset.grupa] = b.value; return; }
+  if (akcja === 'dup-polacz') {
+    const art = b.closest('[data-grupa]');
+    const n = $$('input[type=radio]', art).length;
+    const glowny = $('input[type=radio]:checked', art)?.closest('label')?.querySelector('b')?.textContent || '';
+    if (!(await okno('Połączyć klientów?', `<p>${n} wpisy zostaną połączone w jednego klienta: <b>${esc(glowny)}</b>. Wszystkie zamówienia będą przy nim.</p>`,
+      [{ etykieta: 'Wróć', wartosc: false, klasa: 'drugorzedny' }, { etykieta: 'Połącz', wartosc: true, autofocus: true }]))) return;
+    b.disabled = true;
+    try { await polacz(art); } catch (err) { console.error(err); toast('Nie udało się połączyć: ' + (err?.message || err), 'blad', 6000); b.disabled = false; }
+    return;
+  }
+  if (akcja === 'dup-rozni') {
+    const r = rozni(); r.add(b.closest('[data-grupa]').dataset.grupa);
+    try { localStorage.setItem(KLUCZ_ROZNYCH, JSON.stringify([...r])); } catch { /* bez znaczenia */ }
+    renderDuplikatow();
+    return;
+  }
   if (akcja === 'nowy-kod') {
     const pole = $('[name="kod"]');
     if (pole.value && !(await okno('Zmienić kod?', '<p>Stary kod przestanie działać w formularzu.</p>',
       [{ etykieta: 'Zostaw', wartosc: false, klasa: 'drugorzedny', autofocus: true }, { etykieta: 'Zmień kod', wartosc: true }]))) return;
     pole.value = nowyKodKlienta();
     toast('Kod utworzony – zapisz klienta.', 'ok');
+  } else if (akcja === 'wyslij-link') {
+    let k = edytowany;
+    if (!k.kod) {   // link z cenami klienta potrzebuje kodu – tworzymy go i zapisujemy
+      const kod = nowyKodKlienta();
+      const { _nowy, ...stary } = k;
+      await sync.zapisz([{ karta: 'KLIENCI', wiersze: [{ ...stary, kod }] }]);
+      await wczytaj();
+      edytowany = { ...stary, kod };
+      k = edytowany;
+      renderKlienta(k.id);
+    }
+    const link = `${ADRES_FORMULARZA}#kod=${encodeURIComponent(k.kod)}`;
+    const imie = String(k.nazwa || '').trim().split(/\s+/)[0];
+    const tresc = `${imie ? `Cześć ${imie}! ` : ''}Tu możesz złożyć zamówienie w ONE RIVER – wybierz produkty i dostawę, ceny są już dla Ciebie: ${link}`;
+    if (b.dataset.kanal === 'sms') otworzLink(linkSms(k.telefon, tresc));
+    else if (b.dataset.kanal === 'wa') otworzLink(linkWhatsApp(k.telefon, tresc));
+    else { try { await navigator.clipboard.writeText(link); toast('Skopiowano link.', 'ok'); } catch { toast(link, '', 8000); } }
   } else if (akcja === 'kopiuj-link') {
     const link = `${ADRES_FORMULARZA}#kod=${encodeURIComponent(edytowany.kod)}`;
     try { await navigator.clipboard.writeText(link); toast('Skopiowano link.', 'ok'); } catch { toast(link, '', 8000); }

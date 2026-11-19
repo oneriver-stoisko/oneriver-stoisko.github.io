@@ -1,7 +1,7 @@
 // Stałe aplikacji stoiska. Dane do płatności są domyślne dla wszystkich urządzeń;
 // na danym urządzeniu można je zmienić w Ustawieniach.
 
-export const WERSJA = '0.16.0';
+export const WERSJA = '0.17.0';
 
 // Stoisko ma własny adres (osobna „strona” dla telefonu – inaczej Chrome na Androidzie myli je z Finansami).
 export const ADRES_STOISKA = 'https://oneriver-stoisko.github.io/';
@@ -14,7 +14,7 @@ export const czyTransport = symbol => symbol === 'TRAN' || symbol === 'TRANS';
 export const TRANSPORT_DOMYSLNY = 12;
 
 // Publiczny formularz zamówień dla klientów (link do wysłania klientowi).
-export const ADRES_FORMULARZA = 'https://szczechu699.github.io/oneriver-finanse/zamow/';
+export const ADRES_FORMULARZA = 'https://oneriver-stoisko.github.io/zamow/';
 
 export const PLATNOSC_DOMYSLNA = {
   odbiorca: 'Darius',
@@ -92,7 +92,9 @@ export const KOLEJNOSC_KATEGORII = ['Rapé', 'Akcesoria do rapé', 'Zielarnia i 
 // Gotowe metody wysyłki do szybkiego dodania (ceny uzupełniasz sam).
 export const PRZYKLADOWE_WYSYLKI = [
   { nazwa: 'Paczkomat InPost', opis: 'Podaj numer paczkomatu, np. WAW123M', wymaga_adresu: true },
-  { nazwa: 'Kurier', opis: 'Dostawa pod wskazany adres', wymaga_adresu: true },
-  { nazwa: 'Odbiór osobisty – Elsterska 10, Warszawa', opis: '', wymaga_adresu: false },
+  { nazwa: 'Kurier InPost', opis: 'Dostawa pod wskazany adres', wymaga_adresu: true },
+  { nazwa: 'Poczta Polska', opis: 'Paczka pocztowa pod wskazany adres', wymaga_adresu: true },
+  { nazwa: 'Poczta Polska – za pobraniem', opis: 'Płacisz listonoszowi albo w placówce przy odbiorze', wymaga_adresu: true, pobranie: true },
   { nazwa: 'Wysyłka zagraniczna', opis: 'Podaj pełny adres z krajem', wymaga_adresu: true },
+  { nazwa: 'Odbiór osobisty – Warszawa', opis: 'Umówimy się telefonicznie', wymaga_adresu: false },
 ];
