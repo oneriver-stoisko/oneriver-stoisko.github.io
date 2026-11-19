@@ -16,13 +16,14 @@
 <body>
   <header class="gora">
     <span class="marka"><img src="../icons/icon-192.png" alt="" width="34" height="34"><span><b>ONE RIVER</b><small>zamówienie</small></span></span>
-    <button type="button" class="kod-przycisk" id="kod-przycisk" data-akcja="kod">Mam kod klienta</button>
+    <div class="ustawienia" id="ustawienia"></div>
   </header>
-  <main id="widok" tabindex="-1"><p class="laduje">Wczytuję ofertę…</p></main>
+  <main id="widok" tabindex="-1"><p class="laduje">…</p></main>
   <div id="pasek" class="pasek" hidden></div>
   <footer class="stopka"><p>ONE RIVER sp. z o.o. · Warszawa · <a href="https://oneriver.pl/" target="_blank" rel="noopener">oneriver.pl</a></p></footer>
   <div id="toast" role="status" aria-live="polite"></div>
   <dialog id="okno"></dialog>
-  <script type="module" src="zamow.js"></script>
+  <dialog id="mapa" class="mapa"></dialog>
+  <script type="module" src="zamow.js?v=2"></script>
 </body>
 </html>

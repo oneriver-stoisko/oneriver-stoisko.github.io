@@ -1,7 +1,7 @@
 // Stałe aplikacji stoiska. Dane do płatności są domyślne dla wszystkich urządzeń;
 // na danym urządzeniu można je zmienić w Ustawieniach.
 
-export const WERSJA = '0.17.0';
+export const WERSJA = '0.18.0';
 
 // Stoisko ma własny adres (osobna „strona” dla telefonu – inaczej Chrome na Androidzie myli je z Finansami).
 export const ADRES_STOISKA = 'https://oneriver-stoisko.github.io/';
@@ -91,10 +91,17 @@ export const KOLEJNOSC_KATEGORII = ['Rapé', 'Akcesoria do rapé', 'Zielarnia i 
 
 // Gotowe metody wysyłki do szybkiego dodania (ceny uzupełniasz sam).
 export const PRZYKLADOWE_WYSYLKI = [
-  { nazwa: 'Paczkomat InPost', opis: 'Podaj numer paczkomatu, np. WAW123M', wymaga_adresu: true },
-  { nazwa: 'Kurier InPost', opis: 'Dostawa pod wskazany adres', wymaga_adresu: true },
-  { nazwa: 'Poczta Polska', opis: 'Paczka pocztowa pod wskazany adres', wymaga_adresu: true },
-  { nazwa: 'Poczta Polska – za pobraniem', opis: 'Płacisz listonoszowi albo w placówce przy odbiorze', wymaga_adresu: true, pobranie: true },
-  { nazwa: 'Wysyłka zagraniczna', opis: 'Podaj pełny adres z krajem', wymaga_adresu: true },
-  { nazwa: 'Odbiór osobisty – Warszawa', opis: 'Umówimy się telefonicznie', wymaga_adresu: false },
+  { nazwa: 'Paczkomat InPost', opis: 'Wybierz paczkomat na mapie albo wpisz jego numer', wymaga_adresu: true, zasieg: 'pl' },
+  { nazwa: 'Paczkomat InPost – za pobraniem', opis: 'Płacisz w paczkomacie przy odbiorze', wymaga_adresu: true, pobranie: true, do_ustalenia: true, zasieg: 'pl' },
+  { nazwa: 'Kurier InPost', opis: 'Dostawa pod wskazany adres', wymaga_adresu: true, zasieg: 'pl' },
+  { nazwa: 'Kurier InPost – za pobraniem', opis: 'Płacisz kurierowi przy odbiorze', wymaga_adresu: true, pobranie: true, do_ustalenia: true, zasieg: 'pl' },
+  { nazwa: 'Poczta Polska', opis: 'Paczka pocztowa pod wskazany adres', wymaga_adresu: true, zasieg: 'pl' },
+  { nazwa: 'Poczta Polska – za pobraniem', opis: 'Płacisz listonoszowi albo w placówce przy odbiorze', wymaga_adresu: true, pobranie: true, do_ustalenia: true, zasieg: 'pl' },
+  { nazwa: 'Odbiór osobisty – Warszawa', opis: 'Umówimy się telefonicznie', wymaga_adresu: false, zasieg: 'pl' },
+  { nazwa: 'InPost International (Europe)', opis: 'Parcel lockers and pickup points across Europe', wymaga_adresu: true, zasieg: 'zagranica' },
+  { nazwa: 'International courier', opis: 'Courier delivery to your door', wymaga_adresu: true, zasieg: 'zagranica' },
+  { nazwa: 'Polish Post – international parcel', opis: 'Standard international post', wymaga_adresu: true, zasieg: 'zagranica' },
+  { nazwa: 'International shipping – cost to be confirmed', opis: 'We will confirm the shipping cost with you before payment', wymaga_adresu: true, do_ustalenia: true, zasieg: 'zagranica' },
 ];
+export const ZASIEGI = [['pl', 'Polska'], ['zagranica', 'Za granicą'], ['wszedzie', 'Wszędzie']];
+export const JEZYKI_FORMULARZA = [['pl', 'polski'], ['en', 'angielski'], ['es', 'hiszpański'], ['fr', 'francuski'], ['de', 'niemiecki']];

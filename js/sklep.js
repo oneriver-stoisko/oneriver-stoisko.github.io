@@ -3,7 +3,7 @@
 
 import { $, esc, kwotaTxt, num, liczba, liczbaNaTekst, uuid, toast, okno } from './util.js';
 import { dane, wczytaj, aktywny, kategorieFormularza, ustawienieTekst } from './dane.js';
-import { ADRES_FORMULARZA, PRZYKLADOWE_WYSYLKI, TRANSPORT_DOMYSLNY, SYMBOL_TRANSPORTU, KOLEJNOSC_KATEGORII } from './konfiguracja.js';
+import { ADRES_FORMULARZA, PRZYKLADOWE_WYSYLKI, TRANSPORT_DOMYSLNY, SYMBOL_TRANSPORTU, KOLEJNOSC_KATEGORII, ZASIEGI, JEZYKI_FORMULARZA } from './konfiguracja.js';
 import { wywolaj, ustawienia, wersjaApi } from './api.js';
 import * as sync from './sync.js';
 
@@ -14,13 +14,17 @@ function htmlWysylek() {
   if (!dane.wysylki.length) return '<p class="pusto">Nie ma jeszcze metod wysyłki. Dodaj gotową poniżej albo własną.</p>';
   return `<ul class="lista-edycji">${dane.wysylki.map(w => `<li>
     <form data-forma="wysylka" data-id="${esc(w.id)}" class="edycja-wiersza${aktywny(w) ? '' : ' nieaktywna'}">
+      <p class="znaczniki-wys">${[(ZASIEGI.find(([k]) => k === (w.zasieg || 'pl')) || [])[1], prawda(w.pobranie) ? 'pobranie' : '', prawda(w.do_ustalenia) ? 'koszt do ustalenia' : '', aktywny(w) ? '' : 'ukryta'].filter(Boolean).map(z => `<span class="status">${esc(z)}</span>`).join(' ')}</p>
       <label class="pole szeroka"><span class="etykieta">Nazwa</span><input name="nazwa" value="${esc(w.nazwa)}" autocomplete="off"></label>
       <label class="pole"><span class="etykieta">Cena</span><input name="cena" inputmode="decimal" value="${esc(kwotaPola(w.cena))}" placeholder="0,00"></label>
       <label class="pole"><span class="etykieta">Darmowa od</span><input name="darmowa_od" inputmode="decimal" value="${esc(kwotaPola(w.darmowa_od))}" placeholder="nigdy"></label>
+      <label class="pole"><span class="etykieta">Cena w EUR</span><input name="cena_eur" inputmode="decimal" value="${esc(kwotaPola(w.cena_eur))}" placeholder="z kursu"></label>
+      <label class="pole"><span class="etykieta">Dla kogo</span><select name="zasieg">${ZASIEGI.map(([k, n]) => `<option value="${k}" ${(w.zasieg || 'pl') === k ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
       <label class="pole"><span class="etykieta">Kolejność</span><input name="kolejnosc" inputmode="numeric" value="${esc(w.kolejnosc ?? '')}"></label>
       <label class="pole szeroka"><span class="etykieta">Opis dla klienta</span><input name="opis" value="${esc(w.opis || '')}" autocomplete="off"></label>
       <label class="przelacznik"><input type="checkbox" name="wymaga_adresu" ${prawda(w.wymaga_adresu) ? 'checked' : ''}> wymaga adresu / paczkomatu</label>
       <label class="przelacznik"><input type="checkbox" name="pobranie" ${prawda(w.pobranie) ? 'checked' : ''}> za pobraniem (klient płaci przy odbiorze)</label>
+      <label class="przelacznik"><input type="checkbox" name="do_ustalenia" ${prawda(w.do_ustalenia) ? 'checked' : ''}> koszt do ustalenia (klient widzi „do ustalenia”, kwotę wpiszesz przy sprawdzaniu)</label>
       <label class="przelacznik"><input type="checkbox" name="aktywna" ${aktywny(w) ? 'checked' : ''}> widoczna dla klientów</label>
       <div class="przyciski"><button type="submit">Zapisz</button></div>
     </form></li>`).join('')}</ul>`;
@@ -66,6 +70,8 @@ function render() {
       <p class="podpowiedz">Link ogólny (ceny katalogowe): <a href="${esc(ADRES_FORMULARZA)}" target="_blank" rel="noopener">${esc(ADRES_FORMULARZA)}</a><br>
         Link z cenami i danymi konkretnego klienta wyślesz z jego karty (Klienci → klient → „Wyślij link do zamówienia”).</p>
       <div class="przyciski"><button type="button" data-akcja="udostepnij-formularz">Wyślij link…</button><button type="button" class="drugorzedny" data-akcja="kopiuj-formularz">Kopiuj link</button></div>
+      <p class="podpowiedz">Dla klientów zagranicznych – formularz od razu w ich języku (cenę w € albo zł klient wybiera sam):</p>
+      <div class="chipy">${JEZYKI_FORMULARZA.filter(([k]) => k !== 'pl').map(([k, n]) => `<button type="button" class="chip" data-akcja="kopiuj-formularz" data-lang="${k}">Kopiuj link – ${esc(n)}</button>`).join('')}</div>
       <form data-forma="kategorie" class="edycja-wiersza">
         <span class="etykieta">Kategorie w formularzu</span>
         <div class="chipy">${KOLEJNOSC_KATEGORII.map(k => `<label class="przelacznik"><input type="checkbox" name="kat" value="${esc(k)}" ${kategorieFormularza().includes(k) ? 'checked' : ''}> ${esc(k)}</label>`).join('')}</div>
@@ -77,6 +83,7 @@ function render() {
       <h2>Cennik dostaw</h2>
       <p class="podpowiedz">Te metody i ceny widzi klient w formularzu. „Darmowa od” – od jakiej kwoty zakupów dostawa jest gratis (puste = nigdy). Zmiana działa w formularzu po ok. 10 minutach.</p>
       ${htmlWysylek()}
+      <p class="podpowiedz">„Za pobraniem” razem z „koszt do ustalenia”: klient widzi „do ustalenia”, a koszt wpisujesz przy sprawdzaniu zamówienia, zanim wyślesz klientowi potwierdzenie.</p>
       ${PRZYKLADOWE_WYSYLKI.some(w => !istniejace.has(w.nazwa)) ? `<p class="etykieta">Dodaj gotową metodę:</p>
       <div class="chipy">${PRZYKLADOWE_WYSYLKI.map((w, i) => istniejace.has(w.nazwa) ? '' : `<button type="button" class="chip" data-akcja="dodaj-wysylke" data-i="${i}">+ ${esc(w.nazwa)}</button>`).join('')}</div>` : ''}
       <div class="przyciski"><button type="button" class="drugorzedny" data-akcja="dodaj-wysylke" data-i="-1">+ Własna metoda</button></div>
@@ -150,11 +157,14 @@ async function submit(form) {
     const cena = kwotaZPola(f.cena.value);
     const darmowa = kwotaZPola(f.darmowa_od.value);
     if (!f.nazwa.value.trim()) return toast('Wpisz nazwę metody.', 'blad');
-    if (cena === '' || Number.isNaN(cena)) return toast('Wpisz cenę wysyłki (0 dla darmowej).', 'blad');
+    if ((cena === '' && !f.do_ustalenia.checked) || Number.isNaN(cena)) return toast('Wpisz cenę wysyłki (0 dla darmowej) albo zaznacz „koszt do ustalenia”.', 'blad');
     if (Number.isNaN(darmowa)) return toast('Sprawdź kwotę „darmowa od”.', 'blad');
+    const cenaEur = kwotaZPola(f.cena_eur.value);
+    if (Number.isNaN(cenaEur)) return toast('Sprawdź cenę w EUR.', 'blad');
     await zapiszWiersz('WYSYLKI', { ...w, nazwa: f.nazwa.value.trim(), opis: f.opis.value.trim(), cena, darmowa_od: darmowa,
       kolejnosc: f.kolejnosc.value.trim() === '' ? '' : Number(f.kolejnosc.value) || 0,
-      wymaga_adresu: f.wymaga_adresu.checked, pobranie: f.pobranie.checked, aktywna: f.aktywna.checked }, `Zapisano: ${f.nazwa.value.trim()}.`);
+      wymaga_adresu: f.wymaga_adresu.checked, pobranie: f.pobranie.checked, do_ustalenia: f.do_ustalenia.checked, zasieg: f.zasieg.value, cena_eur: cenaEur,
+      aktywna: f.aktywna.checked }, `Zapisano: ${f.nazwa.value.trim()}.`);
   } else if (form.dataset.forma === 'grupa' || form.dataset.forma === 'nowa-grupa') {
     const nowa = form.dataset.forma === 'nowa-grupa';
     const g = nowa ? { id: uuid(), opis: '' } : dane.grupyCenowe.find(x => String(x.id) === form.dataset.id);
@@ -171,14 +181,16 @@ async function klik(e) {
   if (!b) return;
   const akcja = b.dataset.akcja;
   if (akcja === 'kopiuj-formularz') {
-    try { await navigator.clipboard.writeText(ADRES_FORMULARZA); toast('Skopiowano link do formularza.', 'ok'); } catch { toast(ADRES_FORMULARZA, '', 8000); }
+    const link = ADRES_FORMULARZA + (b.dataset.lang ? '#lang=' + b.dataset.lang : '');
+    try { await navigator.clipboard.writeText(link); toast('Skopiowano link do formularza.', 'ok'); } catch { toast(link, '', 8000); }
   } else if (akcja === 'udostepnij-formularz') {
     const tresc = `Zamówienie ONE RIVER – wybierz produkty i dostawę tutaj: ${ADRES_FORMULARZA}`;
     if (navigator.share) { try { await navigator.share({ title: 'Zamówienie ONE RIVER', text: tresc }); } catch { /* anulowano */ } }
     else { try { await navigator.clipboard.writeText(tresc); toast('Skopiowano wiadomość z linkiem.', 'ok'); } catch { toast(tresc, '', 8000); } }
   } else if (akcja === 'dodaj-wysylke') {
     const wzor = PRZYKLADOWE_WYSYLKI[Number(b.dataset.i)] || { nazwa: 'Nowa metoda', opis: '', wymaga_adresu: true };
-    await zapiszWiersz('WYSYLKI', { id: uuid(), nazwa: wzor.nazwa, opis: wzor.opis, cena: 0, darmowa_od: '', wymaga_adresu: wzor.wymaga_adresu, pobranie: Boolean(wzor.pobranie),
+    await zapiszWiersz('WYSYLKI', { id: uuid(), nazwa: wzor.nazwa, opis: wzor.opis, cena: wzor.do_ustalenia ? '' : 0, darmowa_od: '', wymaga_adresu: wzor.wymaga_adresu, pobranie: Boolean(wzor.pobranie),
+      do_ustalenia: Boolean(wzor.do_ustalenia), zasieg: wzor.zasieg || 'pl', cena_eur: '',
       kolejnosc: dane.wysylki.length + 1, aktywna: false }, `Dodano: ${wzor.nazwa}. Wpisz cenę i zaznacz „widoczna dla klientów”.`);
   } else if (akcja === 'odswiez-katalog') {
     if (!navigator.onLine) return toast('Odświeżenie katalogu wymaga internetu.', 'blad');

@@ -732,3 +732,6 @@ a.dup-pasek { display: block; text-decoration: none; font-weight: 700; }
 .dup-klient { display: flex; gap: 12px; align-items: flex-start; padding: 10px 2px; cursor: pointer; }
 .dup-klient input { width: 22px; height: 22px; margin-top: 2px; flex: none; accent-color: var(--rzeka); }
 .dup-klient small { display: block; color: var(--szary); font-size: 13px; margin-top: 2px; }
+.do-ustalenia { color: var(--tekst-blad); }
+.znaczniki-wys { margin: 0 0 6px; width: 100%; }
+.znaczniki-wys .status { font-size: 12.5px; }

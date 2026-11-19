@@ -43,8 +43,9 @@ function htmlEdycji(z, poz, tel, mail) {
           <label class="cena"><span>Cena szt. (po rabacie)</span><input data-ed="cena" inputmode="decimal" autocomplete="off" value="${esc(edycja.pozycje.get(p.id).cenaTxt)}" placeholder="${esc(liczbaNaTekst(num(p.cena)))}"></label>
           <b class="poz-wartosc">${esc(kwotaTxt(wartoscEd(p)))}</b>
         </div></li>`).join('')}</ul>
-      ${z.dostawa ? `<label class="pole"><span class="etykieta">Koszt dostawy – ${esc(z.dostawa)}</span>
-        <input data-ed="koszt" inputmode="decimal" value="${esc(edycja.kosztTxt)}" placeholder="${esc(liczbaNaTekst(num(z.koszt_dostawy)))}"></label>` : ''}
+      ${z.kraj && z.kraj !== 'PL' || (z.jezyk_formularza && z.jezyk_formularza !== 'pl') || z.waluta === 'EUR' ? `<p class="pasek-info">🌍 Klient zagraniczny${z.kraj && z.kraj !== 'PL' ? ` · kraj: ${esc(z.kraj)}` : ''}${z.jezyk_formularza ? ` · formularz: ${esc(String(z.jezyk_formularza).toUpperCase())}` : ''}${z.waluta === 'EUR' ? ` · płaci w euro (${esc(String(z.suma_eur))} € wg formularza)` : ''}. Wiadomość pójdzie po angielsku.</p>` : ''}
+      ${z.dostawa ? `<label class="pole"><span class="etykieta">Koszt dostawy – ${esc(z.dostawa)}${z.koszt_do_ustalenia === 'tak' ? ' <b class="do-ustalenia">– DO USTALENIA, wpisz kwotę</b>' : ''}</span>
+        <input data-ed="koszt" inputmode="decimal" value="${esc(edycja.kosztTxt)}" placeholder="${esc(z.koszt_do_ustalenia === 'tak' ? 'np. 18,99' : liczbaNaTekst(num(z.koszt_dostawy)))}"></label>` : ''}
       <span class="etykieta">Płatność</span>
       <div class="chipy formy">${FORMY.filter(([w]) => PLATNE_POZNIEJ.has(w)).map(([w, e]) => `<button type="button" class="chip" data-akcja="forma-ed" data-forma="${esc(w)}" aria-pressed="${edycja.forma === w}">${esc(e)}</button>`).join('')}</div>
       <div class="suma"><span>Razem</span><b id="suma-ed">${esc(kwotaTxt(zaokr(sumaProdEd(poz) + kosztEd(z))))}</b></div>
@@ -67,6 +68,11 @@ async function potwierdz(kanal, przycisk) {
     if (!isFinite(cenaEd(p)) || cenaEd(p) < 0) return toast(`Sprawdź cenę: ${p.nazwa}.`, 'blad', 5000);
   }
   if (!isFinite(kosztEd(z)) || kosztEd(z) < 0) return toast('Sprawdź koszt dostawy.', 'blad', 5000);
+  if (z.koszt_do_ustalenia === 'tak' && !String(edycja.kosztTxt || '').trim()) {
+    toast('Wpisz koszt dostawy – klient wybrał opcję „do ustalenia” (0, jeśli gratis).', 'blad', 6000);
+    $('[data-ed="koszt"]')?.focus();
+    return;
+  }
   zapisuje = true;
   przycisk.disabled = true;
   try {
@@ -77,11 +83,15 @@ async function potwierdz(kanal, przycisk) {
     }));
     const wartosc = sumaProdEd(poz);
     const koszt = kosztEd(z);
+    // zamówienie w euro: po zmianie cen lub kosztu dostawy suma w euro liczona od nowa (pełne euro, kurs z formularza)
+    const zmienione = Math.abs(zaokr(wartosc + koszt) - num(z.suma_brutto)) >= 0.005;
+    const eur = z.waluta === 'EUR' && num(z.kurs) > 0 && zmienione ? { suma_eur: Math.round(num(z.suma_eur) + (zaokr(wartosc + koszt) - num(z.suma_brutto)) / num(z.kurs)) } : {};
     await sync.zapisz([
       { karta: 'ZAMOWIENIA_POZ', wiersze: pozycje },
       { karta: 'ZAMOWIENIA', wiersze: [{
         ...z, status: STATUSY.czeka, forma_platnosci: edycja.forma, wartosc_produktow: wartosc, koszt_dostawy: koszt,
-        suma_brutto: zaokr(wartosc + koszt), podmiot: z.podmiot || u.podmiot, magazyn: z.magazyn || u.magazyn,
+        suma_brutto: zaokr(wartosc + koszt), podmiot: z.podmiot || u.podmiot, magazyn: z.magazyn || u.magazyn, ...eur,
+        koszt_do_ustalenia: z.koszt_do_ustalenia === 'tak' ? 'ustalono' : (z.koszt_do_ustalenia || ''),
       }] },
     ]);
     await wczytaj();
