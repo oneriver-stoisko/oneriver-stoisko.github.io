@@ -24,8 +24,9 @@ export function linkPlatnosci(zam, kwota, eur, en) {
     if (platnosc.odbiorcaEur || platnosc.odbiorca) q.set('o', platnosc.odbiorcaEur || platnosc.odbiorca);
     if (platnosc.kontoEur) q.set('a', String(platnosc.kontoEur).replace(/\s+/g, ''));
     if (platnosc.swift) q.set('s', String(platnosc.swift).trim());
+    if (platnosc.adres) q.set('ad', platnosc.adres);
   } else {
-    if (platnosc.konto) { q.set('o', platnosc.odbiorca || ''); q.set('a', String(platnosc.konto).replace(/\s+/g, '')); }
+    if (platnosc.konto) { q.set('o', platnosc.odbiorca || ''); q.set('a', String(platnosc.konto).replace(/\s+/g, '')); if (platnosc.adres) q.set('ad', platnosc.adres); }
     if (platnosc.blik) q.set('b', String(platnosc.blik).replace(/\D/g, ''));
   }
   if (en) q.set('j', 'en');
@@ -79,6 +80,7 @@ function trescEN(zam, pozycje) {
     linie.push(zam.oplaca_odbiorca === 'tak' ? `Shipping – ${nazwa}: postage paid on delivery`
       : eur ? `Shipping – ${nazwa}${koszt ? kosztEur : ': free'}` : `Shipping – ${nazwa}: ${koszt ? kwotaTxt(koszt) : 'free'}`);
     if (zam.adres_dostawy) linie.push(`${/paczkomat/i.test(zam.dostawa) ? 'Parcel locker / pickup point' : 'Address'}: ${String(zam.adres_dostawy).replace(/\s*\n\s*/g, ', ')}`);
+    if (zam.koszt_do_ustalenia === 'ustalono') linie.push('We have quoted the shipping individually. If you accept the cost, please pay for the order – that is your confirmation. If not, just reply to this message.');
     if (zam.nr_przesylki) {
       const link = linkSledzenia(zam.nr_przesylki, zam.przewoznik || 'InPost');
       linie.push(`Tracking number: ${zam.nr_przesylki}`);
@@ -97,12 +99,13 @@ function trescEN(zam, pozycje) {
   else if (eur) {
     linie.push(`To pay: ${euroTxt(zam.suma_eur)} by bank transfer (EUR)`);
     if (platnosc.odbiorcaEur || platnosc.odbiorca) linie.push(`Recipient: ${platnosc.odbiorcaEur || platnosc.odbiorca}`);
+    if (platnosc.adres) linie.push(`Recipient address: ${platnosc.adres}, Poland`);
     if (platnosc.kontoEur) linie.push(`IBAN: ${platnosc.kontoEur}`);
     if (platnosc.swift) linie.push(`BIC/SWIFT: ${platnosc.swift}`);
     linie.push('Please put the order number in the transfer title:', zam.id, '', 'Copy the order number and payment details with one tap:', linkPlatnosci(zam, zam.suma_eur, true, true));
   } else {
     linie.push(`To pay: ${kwotaTxt(Math.round(doZaplaty * 100) / 100)}`);
-    if (platnosc.konto) linie.push(`• bank transfer: ${platnosc.odbiorca}, account ${platnosc.konto}`);
+    if (platnosc.konto) linie.push(`• bank transfer: ${platnosc.odbiorca}${platnosc.adres ? ', ' + platnosc.adres : ''}, account ${platnosc.konto}`);
     if (platnosc.blik) linie.push(`• BLIK (Polish mobile payment) to: ${platnosc.blik}`);
     linie.push('Please put the order number in the transfer title:', zam.id, '', 'Copy the order number and payment details with one tap:', linkPlatnosci(zam, doZaplaty, false, true));
   }
@@ -126,6 +129,7 @@ export function trescWiadomosci(zam, pozycje) {
     linie.push(zam.oplaca_odbiorca === 'tak' ? `Dostawa – ${zam.dostawa}: koszt przesyłki płacisz przy odbiorze`
       : eur ? `Dostawa – ${zam.dostawa}${koszt ? '' : ': gratis'}` : `Dostawa – ${zam.dostawa}: ${koszt ? kwotaTxt(koszt) : 'gratis'}`);
     if (zam.adres_dostawy) linie.push(`${/paczkomat/i.test(zam.dostawa) ? 'Paczkomat' : 'Adres'}: ${String(zam.adres_dostawy).replace(/\s*\n\s*/g, ', ')}`);
+    if (zam.koszt_do_ustalenia === 'ustalono') linie.push('Koszt wysyłki wyceniliśmy indywidualnie. Jeśli go akceptujesz, opłać zamówienie – to będzie potwierdzenie. Jeśli nie, odpisz na tę wiadomość.');
     if (zam.nr_przesylki) {
       const przew = zam.przewoznik || 'InPost';
       const link = linkSledzenia(zam.nr_przesylki, przew);
@@ -146,12 +150,13 @@ export function trescWiadomosci(zam, pozycje) {
   if (doZaplaty > 0.005 && eur) {
     linie.push(`Do zapłaty: ${euroTxt(zam.suma_eur, false)} – przelew w euro`);
     if (platnosc.odbiorcaEur || platnosc.odbiorca) linie.push(`Odbiorca: ${platnosc.odbiorcaEur || platnosc.odbiorca}`);
+    if (platnosc.adres) linie.push(`Adres odbiorcy: ${platnosc.adres}`);
     if (platnosc.kontoEur) linie.push(`IBAN: ${platnosc.kontoEur}`);
     if (platnosc.swift) linie.push(`BIC/SWIFT: ${platnosc.swift}`);
     linie.push('Prosimy wpisać w tytule przelewu numer zamówienia:', zam.id, '', 'Numer zamówienia i dane do przelewu skopiujesz jednym dotknięciem:', linkPlatnosci(zam, zam.suma_eur, true, false));
   } else if (doZaplaty > 0.005) {
     linie.push(`Do zapłaty: ${kwotaTxt(Math.round(doZaplaty * 100) / 100)}`);
-    if (platnosc.konto) linie.push(`• przelew: ${platnosc.odbiorca}, nr konta ${platnosc.konto}`);
+    if (platnosc.konto) linie.push(`• przelew: ${platnosc.odbiorca}${platnosc.adres ? ', ' + platnosc.adres : ''}, nr konta ${platnosc.konto}`);
     if (platnosc.blik) linie.push(`• BLIK na telefon: ${platnosc.blik}`);
     linie.push('Prosimy wpisać w tytule przelewu numer zamówienia:', zam.id, '', 'Numer zamówienia i dane do płatności skopiujesz jednym dotknięciem:', linkPlatnosci(zam, doZaplaty, false, false));
   }

@@ -41,8 +41,8 @@ window.addEventListener('hashchange', function () { location.reload(); });
   var p = new URLSearchParams(location.hash.replace(/^#/, ''));
   var en = p.get('j') === 'en';
   var T = en
-    ? { tytul: 'Payment details', opis: 'Tap “Copy” and paste into your banking app.', nr: 'Order number – transfer title', kw: 'Amount', od: 'Recipient', konto: 'Account number', iban: 'IBAN', swift: 'BIC / SWIFT', blik: 'BLIK – phone number', kopiuj: 'Copy', skop: 'Copied ✓', brak: 'Missing payment details – please contact us.', przelew: 'Bank transfer', inne: 'BLIK (Polish mobile payment)' }
-    : { tytul: 'Dane do płatności', opis: 'Dotknij „Kopiuj” i wklej w aplikacji banku.', nr: 'Numer zamówienia – tytuł przelewu', kw: 'Kwota', od: 'Odbiorca', konto: 'Numer konta', iban: 'IBAN', swift: 'BIC / SWIFT', blik: 'BLIK na telefon', kopiuj: 'Kopiuj', skop: 'Skopiowano ✓', brak: 'Brak danych do płatności – skontaktuj się z nami.', przelew: 'Przelew', inne: 'BLIK' };
+    ? { tytul: 'Payment details', opis: 'Tap “Copy” and paste into your banking app.', nr: 'Order number – transfer title', kw: 'Amount', od: 'Recipient', ad: 'Recipient address', konto: 'Account number', iban: 'IBAN', swift: 'BIC / SWIFT', blik: 'BLIK – phone number', kopiuj: 'Copy', skop: 'Copied ✓', brak: 'Missing payment details – please contact us.', przelew: 'Bank transfer', inne: 'BLIK (Polish mobile payment)' }
+    : { tytul: 'Dane do płatności', opis: 'Dotknij „Kopiuj” i wklej w aplikacji banku.', nr: 'Numer zamówienia – tytuł przelewu', kw: 'Kwota', od: 'Odbiorca', ad: 'Adres odbiorcy', konto: 'Numer konta', iban: 'IBAN', swift: 'BIC / SWIFT', blik: 'BLIK na telefon', kopiuj: 'Kopiuj', skop: 'Skopiowano ✓', brak: 'Brak danych do płatności – skontaktuj się z nami.', przelew: 'Przelew', inne: 'BLIK' };
   document.documentElement.lang = en ? 'en' : 'pl';
   document.title = 'ONE RIVER – ' + T.tytul;
   var esc = function (t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
@@ -60,7 +60,7 @@ window.addEventListener('hashchange', function () { location.reload(); });
   var html = '<p class="marka">ONE RIVER</p><h1>' + esc(T.tytul) + '</h1><p class="opis">' + esc(T.opis) + '</p>';
   if (!n) { document.getElementById('m').innerHTML = html + '<p class="brak">' + esc(T.brak) + '</p>'; return; }
   html += pole(T.nr, n, n, true) + pole(T.kw, kwotaPokaz, k.replace('.', en ? '.' : ','));
-  if (konto) html += '<h2>' + esc(T.przelew) + '</h2>' + pole(T.od, p.get('o'), p.get('o')) + pole(/^[A-Z]{2}/.test(konto) ? T.iban : T.konto, grupuj(konto), konto.replace(/\s+/g, '')) + pole(T.swift, p.get('s'), p.get('s'));
+  if (konto) html += '<h2>' + esc(T.przelew) + '</h2>' + pole(T.od, p.get('o'), p.get('o')) + (p.get('ad') ? pole(T.ad, p.get('ad'), p.get('ad')) : '') + pole(/^[A-Z]{2}/.test(konto) ? T.iban : T.konto, grupuj(konto), konto.replace(/\s+/g, '')) + pole(T.swift, p.get('s'), p.get('s'));
   if (blik) html += '<h2>' + esc(T.inne) + '</h2>' + pole(T.blik, blik.replace(/^(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3'), blik);
   html += '<p class="stopka">' + (en ? 'Thank you!' : 'Dziękujemy!') + ' · <a href="https://oneriver.pl">oneriver.pl</a></p>';
   document.getElementById('m').innerHTML = html;

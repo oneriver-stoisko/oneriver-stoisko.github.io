@@ -77,6 +77,8 @@ function render(komunikat = '', klasa = '') {
         <input name="odbiorca" autocomplete="off" value="${esc(u.platnosc.odbiorca)}"></label>
       <label class="pole"><span class="etykieta">Numer konta</span>
         <input name="konto" inputmode="numeric" autocomplete="off" value="${esc(u.platnosc.konto)}"></label>
+      <label class="pole"><span class="etykieta">Adres odbiorcy (do przelewów w zł i w euro)</span>
+        <input name="adresOdbiorcy" autocomplete="off" value="${esc(u.platnosc.adres)}" placeholder="Nalewki 5/6, 00-187 Warszawa"></label>
       <label class="pole"><span class="etykieta">Telefon do BLIK</span>
         <input name="blik" inputmode="tel" autocomplete="off" value="${esc(u.platnosc.blik)}"></label>
 
@@ -142,6 +144,7 @@ async function zapisz(form) {
 
   const platnosc = {
     odbiorca: f.odbiorca.value.trim() || PLATNOSC_DOMYSLNA.odbiorca,
+    adres: f.adresOdbiorcy.value.trim() || PLATNOSC_DOMYSLNA.adres,
     konto: f.konto.value.trim(),
     blik: f.blik.value.trim(),
     odbiorcaEur: f.odbiorcaEur.value.trim(),

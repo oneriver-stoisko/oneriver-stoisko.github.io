@@ -1,7 +1,7 @@
 // Stałe aplikacji stoiska. Dane do płatności są domyślne dla wszystkich urządzeń;
 // na danym urządzeniu można je zmienić w Ustawieniach.
 
-export const WERSJA = '0.19.1';
+export const WERSJA = '0.20.0';
 
 // Stoisko ma własny adres (osobna „strona” dla telefonu – inaczej Chrome na Androidzie myli je z Finansami).
 export const ADRES_STOISKA = 'https://oneriver-stoisko.github.io/';
@@ -17,6 +17,7 @@ export const TRANSPORT_DOMYSLNY = 12;
 export const ADRES_FORMULARZA = 'https://oneriver-stoisko.github.io/zamow/';
 
 export const PLATNOSC_DOMYSLNA = {
+  adres: 'Nalewki 5/6, 00-187 Warszawa',
   odbiorca: 'Darius',
   konto: '96 1140 2004 0000 3402 7777 2198',
   blik: '739 001 013',

@@ -4,7 +4,7 @@
 // Oferta, ceny i cennik dostaw przychodzą ze skryptu arkusza (akcja „sklep”); zamówienie wysyła akcja „zamow”.
 // Link z #kod=… pokazuje ceny klienta i wpisuje jego dane; #lang=en|es|fr|de ustawia język.
 
-import { T, JEZYKI, KATEGORIE, KRAJE } from './teksty.js?v=4';
+import { T, JEZYKI, KATEGORIE, KRAJE } from './teksty.js?v=5';
 
 const API = 'https://script.google.com/macros/s/AKfycbwFcvYtbGMBPlJCT_QDzXfnFvnnEQQt1EqFrjnhEKgeg7lo22JuRwFxOK5-vZGcVwg9CQ/exec';
 const KOLEJNOSC = ['Rapé', 'Akcesoria do rapé', 'Zielarnia i olejki', 'Biżuteria', 'Odzież', 'Wystrój wnętrz i inne', 'Instrumenty etniczne'];
@@ -341,7 +341,7 @@ function htmlPaska() {
       <button type="button" class="glowny" data-akcja="dalej" ${n ? '' : 'disabled'}>${esc(t('dalej'))}</button>`;
   }
   const wstecz = `<button type="button" class="drugi" data-akcja="wstecz">${esc(t('wstecz'))}</button>`;
-  if (s.krok === 'dane') return `${wstecz}<button type="button" class="glowny" data-akcja="wyslij" ${s.wysylam ? 'disabled' : ''}>${esc(s.wysylam ? t('wysylam') : t('zamawiam'))}</button>`;
+  if (s.krok === 'dane') return `${wstecz}<button type="button" class="glowny" data-akcja="wyslij" ${s.wysylam ? 'disabled' : ''}>${esc(s.wysylam ? t('wysylam') : doWyceny() || dostawa()?.do_ustalenia ? t('wyslijDoWyceny') : t('zamawiam'))}</button>`;
   return `${wstecz}<button type="button" class="glowny" data-akcja="dalej" ${n ? '' : 'disabled'}>${esc(t('dalej'))}</button>`;
 }
 
