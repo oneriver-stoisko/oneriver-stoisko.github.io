@@ -735,3 +735,36 @@ a.dup-pasek { display: block; text-decoration: none; font-weight: 700; }
 .do-ustalenia { color: var(--tekst-blad); }
 .znaczniki-wys { margin: 0 0 6px; width: 100%; }
 .znaczniki-wys .status { font-size: 12.5px; }
+
+/* ── nowe zamówienie na telefonie: etapy ── */
+.etapy-zam, .pasek-etapow { display: none; }
+@media (max-width: 899px) {
+  .nowe.etapami .poza-etapem { display: none !important; }
+  .nowe.etapami .pasek-sumy { display: none !important; }
+  .nowe.etapami .etapy-zam { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; list-style: none; padding: 0; margin: 4px 0 12px; }
+  .etapy-zam li { position: relative; }
+  .etapy-zam li + li::before { content: ''; position: absolute; top: 15px; right: 50%; width: 100%; height: 2px; background: var(--linia); }
+  .etapy-zam button { all: unset; box-sizing: border-box; position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; width: 100%; cursor: pointer; font-size: 12px; color: var(--szary); text-align: center; }
+  .etapy-zam button span { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; background: var(--papier); border: 2px solid var(--linia); }
+  .etapy-zam button.zrobiony span { background: var(--wplyw); border-color: var(--wplyw); color: #fff; }
+  .etapy-zam button.teraz { color: var(--atrament); font-weight: 700; }
+  .etapy-zam button.teraz span { background: var(--przycisk-glowny); border-color: var(--przycisk-glowny); color: #fff; }
+  .nowe.etapami .pasek-etapow {
+    position: fixed; z-index: 15; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px max(10px, env(safe-area-inset-bottom)); background: var(--papier); border-top: 1px solid var(--linia); box-shadow: 0 -6px 18px rgba(0,0,0,.08);
+  }
+  .pasek-etapow .pe-info { flex: 1; min-width: 0; font-size: 14px; color: var(--szary); line-height: 1.2; }
+  .pasek-etapow .pe-info b { display: block; color: var(--atrament); font-family: var(--font-liczby); font-size: 19px; }
+  .pasek-etapow button { min-height: 48px; display: inline-flex; align-items: center; justify-content: center; padding: 8px 18px; border-radius: var(--r); border: 0; background: var(--rzeka); color: #fff; font-weight: 700; font-size: 17px; }
+  .pasek-etapow .glowny { flex: 0 0 auto; min-width: 140px; }
+  .pasek-etapow .drugorzedny { flex: 0 0 auto; min-width: 52px; font-size: 20px; }
+  .nowe.etapami .zatwierdz { margin-bottom: 12px; }
+}
+/* kod QR do zapłaty */
+.qr-przycisk { margin-top: 10px; }
+.qr-platnosc { text-align: center; }
+.qr-kwota { font-family: var(--font-liczby); font-size: 30px; font-weight: 700; margin: 0 0 8px; }
+.qr-kwota small { display: block; font-family: inherit; font-size: 14px; font-weight: 400; color: var(--szary); }
+.qr-zakladki { justify-content: center; margin-bottom: 10px; }
+.qr-kod svg { width: min(280px, 72vw); height: auto; background: #fff; border-radius: 10px; }
+.qr-kod p { font-size: 14.5px; color: var(--szary); margin: 8px 0 0; text-align: left; }

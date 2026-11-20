@@ -12,6 +12,106 @@ import { ustawienia, gotowe, wywolaj } from './api.js';
 import { FORMY, POBRANIE, STATUSY, OSOBY_WYSYLKI, SYMBOL_TRANSPORTU, TRANSPORT_DOMYSLNY, czyTransport, symbolMagazynu, MAGAZYNY, PRZEWOZNICY, MIEDZYNARODOWY, czyInPost } from './konfiguracja.js';
 import { rozpoznaj } from './inpost.js';
 import * as sync from './sync.js';
+import { linkPlatnosci } from './wiadomosc.js';
+
+// ───────────────────────── etapy na telefonie ─────────────────────────
+// Na telefonie zamówienie przechodzi się krokami (jak u Grażynki); na komputerze i tablecie w poziomie zostaje układ w dwóch kolumnach.
+// Wysyłka: najpierw przesyłka (zrzuty z InPost / e-nadawcy), potem produkty, koszyk, klient (sprawdzenie danych ze zrzutów), płatność.
+const TELEFON = '(max-width: 899px)';
+const naTelefonie = () => window.matchMedia(TELEFON).matches;
+const NAZWY_ETAPOW = { przesylka: 'Przesyłka', produkty: 'Produkty', koszyk: 'Koszyk', klient: 'Klient', platnosc: 'Płatność' };
+const etapy = () => (s.typ === 'wysylka' ? ['przesylka', 'produkty', 'koszyk', 'klient', 'platnosc'] : ['produkty', 'koszyk', 'klient', 'platnosc']);
+const etap = () => (etapy().includes(s.etap) ? s.etap : etapy()[0]);
+
+function htmlEtapow() {
+  const l = etapy(), i = l.indexOf(etap());
+  return l.map((e, j) => `<li><button type="button" data-akcja="etap" data-etap="${e}" class="${j < i ? 'zrobiony' : j === i ? 'teraz' : ''}" ${j === i ? 'aria-current="step"' : ''}>
+    <span>${j < i ? '✓' : j + 1}</span>${esc(NAZWY_ETAPOW[e])}</button></li>`).join('');
+}
+function htmlPaskaEtapow() {
+  const l = etapy(), i = l.indexOf(etap());
+  const n = s.koszyk.length;
+  const info = `<span class="pe-info">${n ? `${n} ${odmiana(n, 'pozycja', 'pozycje', 'pozycji')}<b>${esc(kwotaTxt(suma()))}</b>` : 'Koszyk pusty'}</span>`;
+  const wstecz = i > 0 ? '<button type="button" class="drugorzedny" data-akcja="etap-wstecz">←</button>' : '';
+  const dalej = i < l.length - 1
+    ? `<button type="button" class="glowny" data-akcja="etap-dalej">Dalej →</button>`
+    : '';
+  return wstecz + info + dalej;
+}
+/** Pokazuje tylko części ekranu bieżącego etapu (na telefonie); na komputerze widać wszystko. */
+function pokazEtap() {
+  const ekran = $('.ekran.nowe');
+  if (!ekran) return;
+  const tel = naTelefonie();
+  ekran.classList.toggle('etapami', tel);
+  const e = etap();
+  $$('[data-etapy]', ekran).forEach(el => el.classList.toggle('poza-etapem', tel && !el.dataset.etapy.split(' ').includes(e)));
+  const ol = $('.etapy-zam'); if (ol) ol.innerHTML = htmlEtapow();
+  const pe = $('.pasek-etapow'); if (pe) pe.innerHTML = htmlPaskaEtapow();
+}
+function idzDoEtapu(e) {
+  if (!etapy().includes(e)) return;
+  s.etap = e;
+  zachowaj();
+  pokazEtap();
+  window.scrollTo(0, 0);
+  if (e === 'produkty' && !s.szukaj) setTimeout(() => $('[data-pole="szukaj"]')?.focus({ preventScroll: true }), 50);
+}
+window.matchMedia(TELEFON).addEventListener?.('change', () => pokazEtap());
+
+// ───────────────────────── kod QR do zapłaty ─────────────────────────
+// Przelew: kod QR w standardzie polskich banków (Związek Banków Polskich) – klient skanuje go w aplikacji banku
+// i przelew wypełnia się sam. Drugi kod otwiera stronę z danymi do przelewu i BLIK-a (przyciski „Kopiuj”).
+const bezOgonkow = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l').replace(/Ł/g, 'L').replace(/[|]/g, ' ');
+function kodPrzelewu(kwota, tytul) {
+  const { platnosc } = ustawienia();
+  const nrb = String(platnosc.konto || '').replace(/\D/g, '');
+  if (nrb.length !== 26 || !(kwota > 0) || kwota > 9999.99) return '';
+  const grosze = String(Math.round(kwota * 100)).padStart(6, '0');
+  return ['', 'PL', nrb, grosze, bezOgonkow(platnosc.odbiorca).slice(0, 20), bezOgonkow(tytul).slice(0, 32), '', '', ''].join('|');
+}
+function zaladujQr() {
+  if (window.qrcode) return Promise.resolve(window.qrcode);
+  return new Promise((ok, nie) => {
+    const sc = document.createElement('script');
+    sc.src = 'vendor/qrcode.js';
+    sc.onload = () => ok(window.qrcode);
+    sc.onerror = () => nie(new Error('Nie udało się wczytać generatora kodów QR.'));
+    document.head.appendChild(sc);
+  });
+}
+const svgQr = (qr, tekst) => { const q = qr(0, 'M'); q.addData(tekst, 'Byte'); q.make(); return q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); };
+async function pokazQrPlatnosci() {
+  const kw = kwotyPlatnosci();
+  const doZaplaty = zaokr(suma() - zaplaconoNaMiejscu(kw));
+  if (!(doZaplaty > 0)) { toast('Nie ma nic do zapłaty.', '', 3000); return; }
+  const numer = s.tryb === 'edycja' ? s.edytowane : nastepnyNumer();
+  const { platnosc } = ustawienia();
+  let qr;
+  try { qr = await zaladujQr(); } catch (err) { toast(err.message, 'blad', 5000); return; }
+  const przelew = kodPrzelewu(doZaplaty, `Zamowienie ${numer}`);
+  const strona = linkPlatnosci({ id: numer }, doZaplaty, false, false);
+  const html = `<div class="qr-platnosc">
+    <p class="qr-kwota">${esc(kwotaTxt(doZaplaty))}<small>zamówienie ${esc(numer)}</small></p>
+    <div class="chipy male qr-zakladki">
+      ${przelew ? '<button type="button" class="chip" data-qr="bank" aria-pressed="true">Przelew – aplikacja banku</button>' : ''}
+      <button type="button" class="chip" data-qr="strona" aria-pressed="${przelew ? 'false' : 'true'}">BLIK i dane do przelewu</button>
+    </div>
+    ${przelew ? `<div class="qr-kod" data-qr-kod="bank">${svgQr(qr, przelew)}
+      <p>Klient skanuje kod <b>w aplikacji swojego banku</b> (opcja „Skanuj”, „Płatność QR” albo „Zdjęcie faktury”) – przelew wypełni się sam: odbiorca, konto, kwota i tytuł.</p></div>` : ''}
+    <div class="qr-kod" data-qr-kod="strona" ${przelew ? 'hidden' : ''}>${svgQr(qr, strona)}
+      <p>Klient skanuje kod <b>aparatem telefonu</b> – otworzy się strona z numerem do BLIK-a${platnosc.blik ? ` (${esc(platnosc.blik)})` : ''}, numerem konta, kwotą i tytułem do skopiowania jednym dotknięciem.</p></div>
+  </div>`;
+  const zakladki = e => {
+    const b = e.target.closest('[data-qr]');
+    if (!b) return;
+    $$('[data-qr]').forEach(c => c.setAttribute('aria-pressed', String(c === b)));
+    $$('[data-qr-kod]').forEach(k => { k.hidden = k.dataset.qrKod !== b.dataset.qr; });
+  };
+  document.addEventListener('click', zakladki);
+  try { await okno('Zapłata kodem QR', html, [{ etykieta: 'Zamknij', wartosc: true, autofocus: true }]); }
+  finally { document.removeEventListener('click', zakladki); }
+}
 
 const SZKIC = 'or-stoisko-szkic-2';
 const ZAPLACONE_ZAWSZE = new Set(['Gotówka', 'Karta']);
@@ -272,7 +372,8 @@ function htmlPlatnosci() {
     <button type="button" class="link" data-akcja="podziel">+ Podziel płatność</button>
     <p class="podpowiedz" id="opis-platnosci">${razem - zapl > 0.005
       ? `Zapłacone teraz: ${kwotaTxt(zapl)} · do zapłaty: <b>${kwotaTxt(zaokr(razem - zapl))}</b> – w wiadomości będą dane do przelewu i BLIK.`
-      : 'Całość zapłacona – wiadomość będzie potwierdzeniem zakupu.'}</p>`;
+      : 'Całość zapłacona – wiadomość będzie potwierdzeniem zakupu.'}</p>
+    ${razem - zapl > 0.005 && s.waluta !== 'EUR' && kw.some(p => p.forma !== POBRANIE) ? '<button type="button" class="drugorzedny szeroki qr-przycisk" data-akcja="qr-platnosc">📱 Pokaż klientowi kod QR do zapłaty (BLIK / przelew)</button>' : ''}`;
 }
 
 /** Magazyn zamówienia: wybrany ręcznie → przy wysyłce wg osoby wysyłającej (Grażynka = GR, Olek = INC) → z Ustawień. */
@@ -313,32 +414,34 @@ export function render(arg) {
         : `<span class="naglowek-akcje"><a class="kontekst" href="#ustawienia" title="Zmień w Ustawieniach">${esc(kontekst || 'Ustaw wydarzenie i magazyn')}</a>
            <button type="button" class="drugorzedny maly" data-akcja="wyczysc-wszystko">Wyczyść zamówienie</button></span>`}
     </header>
-    <div class="chipy typ-sprzedazy">
+    <ol class="etapy-zam" aria-label="Etapy zamówienia">${htmlEtapow()}</ol>
+    <div class="chipy typ-sprzedazy" data-etapy="przesylka produkty">
       <button type="button" class="chip" data-akcja="typ" data-typ="miejsce" aria-pressed="${s.typ === 'miejsce'}">Na miejscu</button>
       <button type="button" class="chip" data-akcja="typ" data-typ="wysylka" aria-pressed="${s.typ === 'wysylka'}">Wysyłka</button>
     </div>
-    <div class="chipy male magazyn-zam" id="magazyn-zam">${htmlMagazynu()}</div>
+    <div class="chipy male magazyn-zam" id="magazyn-zam" data-etapy="przesylka produkty">${htmlMagazynu()}</div>
     <div class="uklad-zam">
       <div class="kolumna-produkty">
-        <div id="wysylka">${htmlWysylki()}</div>
-        <div class="szukaj-wiersz">
+        <p class="podpowiedz etap-podp" data-etapy="przesylka">Nadaj paczkę w InPost (albo e-nadawcy) i wczytaj zrzuty – dane klienta i adres wpiszą się same. Za pobraniem? Dotknij „Dalej” – zrzut wczytasz w kroku „Klient”, gdy znasz kwotę.</p>
+        <div id="wysylka" data-etapy="przesylka klient">${htmlWysylki()}</div>
+        <div class="szukaj-wiersz" data-etapy="produkty">
           <label class="pole szukaj"><span class="sr">Szukaj produktu</span>
             <input type="search" data-pole="szukaj" value="${esc(s.szukaj)}" placeholder="Szukaj produktu: nazwa, symbol, gramatura" autocomplete="off" enterkeyhint="search"></label>
           <button type="button" class="wyczysc-szukaj" data-akcja="wyczysc-szukaj" aria-label="Wyczyść wyszukiwanie"${s.szukaj ? '' : ' hidden'}>×</button>
         </div>
-        ${dane.grupy.length ? `<div class="chipy male grupy">${dane.grupy.map(g => `<button type="button" class="chip" data-akcja="grupa" data-grupa="${esc(g)}" aria-pressed="${s.grupa === g}">${esc(g)}</button>`).join('')}</div>` : ''}
-        <div id="wyniki">${htmlWynikow()}</div>
-        <button type="button" class="drugorzedny szeroki" data-akcja="spoza">+ Pozycja spoza cennika</button>
+        ${dane.grupy.length ? `<div class="chipy male grupy" data-etapy="produkty">${dane.grupy.map(g => `<button type="button" class="chip" data-akcja="grupa" data-grupa="${esc(g)}" aria-pressed="${s.grupa === g}">${esc(g)}</button>`).join('')}</div>` : ''}
+        <div id="wyniki" data-etapy="produkty">${htmlWynikow()}</div>
+        <button type="button" class="drugorzedny szeroki" data-akcja="spoza" data-etapy="produkty">+ Pozycja spoza cennika</button>
       </div>
 
       <div class="kolumna-koszyk">
-        <article class="panel koszyk" id="panel-koszyka">
+        <article class="panel koszyk" id="panel-koszyka" data-etapy="koszyk platnosc">
           <header><h2>Zamówienie</h2>${s.koszyk.length ? '<button type="button" class="link" data-akcja="wyczysc">Wyczyść</button>' : ''}</header>
           <div id="koszyk">${htmlKoszyka()}</div>
           <div class="suma"><span>Razem<small id="suma-opis">${esc(opisSumy())}</small></span><b id="suma">${esc(kwotaTxt(suma()))}</b></div>
         </article>
 
-        <article class="panel">
+        <article class="panel" data-etapy="klient">
           <h2>Klient</h2>
           <label class="pole"><span class="etykieta">Telefon</span>
             <input data-pole="telefon" type="tel" inputmode="tel" autocomplete="off" value="${esc(s.telefon)}" placeholder="np. 600 100 200">
@@ -351,7 +454,7 @@ export function render(arg) {
           <div id="jezyk">${htmlJezyka()}</div>
         </article>
 
-        <article class="panel">
+        <article class="panel" data-etapy="platnosc">
           <h2>Płatność</h2>
           <div id="waluta">${htmlWaluty()}</div>
           <div id="platnosci">${htmlPlatnosci()}</div>
@@ -360,7 +463,7 @@ export function render(arg) {
         </article>
 
         <div class="blad-zapisu" id="blad-zapisu" role="alert" hidden></div>
-        <div class="zatwierdz">
+        <div class="zatwierdz" data-etapy="platnosc">
           ${edycja ? `<button type="button" class="glowny" data-akcja="zatwierdz" data-kanal="">Zapisz zmiany</button>
             <button type="button" class="link" data-akcja="zatwierdz" data-kanal="sms">Zapisz i wyślij klientowi nowe podsumowanie SMS</button>`
           : `<button type="button" class="glowny" data-akcja="zatwierdz" data-kanal="sms">Zatwierdź i wyślij SMS</button>
@@ -371,7 +474,9 @@ export function render(arg) {
       </div>
     </div>
     <button type="button" class="pasek-sumy" data-akcja="do-koszyka" ${s.koszyk.length ? '' : 'hidden'}>${htmlPaska()}</button>
+    <div class="pasek-etapow">${htmlPaskaEtapow()}</div>
   </section>`;
+  pokazEtap();
 }
 
 function opisSumy() {
@@ -385,6 +490,7 @@ function htmlPaska() {
   return `<span>${n} ${odmiana(n, 'pozycja', 'pozycje', 'pozycji')} · zobacz zamówienie ↓</span><b>${esc(kwotaTxt(suma()))}</b>`;
 }
 function odswiezPasek() {
+  const pe = $('.pasek-etapow'); if (pe) pe.innerHTML = htmlPaskaEtapow();
   const p = $('.pasek-sumy');
   if (!p) return;
   p.hidden = !s.koszyk.length;
@@ -570,6 +676,14 @@ async function klik(e) {
   const b = e.target.closest('[data-akcja]');
   if (!b) return;
   const akcja = b.dataset.akcja;
+  if (akcja === 'etap') { idzDoEtapu(b.dataset.etap); return; }
+  if (akcja === 'etap-wstecz' || akcja === 'etap-dalej') {
+    const l = etapy(), i = l.indexOf(etap());
+    if (akcja === 'etap-dalej' && etap() === 'produkty' && !s.koszyk.length) { toast('Dodaj co najmniej jeden produkt.', 'blad', 3000); return; }
+    idzDoEtapu(l[Math.max(0, Math.min(l.length - 1, i + (akcja === 'etap-dalej' ? 1 : -1)))]);
+    return;
+  }
+  if (akcja === 'qr-platnosc') { await pokazQrPlatnosci(); return; }
   if (akcja === 'wybierz-klienta') {
     const k = klientId(b.dataset.id);
     if (!k) return;
@@ -592,6 +706,7 @@ async function klik(e) {
   else if (akcja === 'typ') {
     s.typ = b.dataset.typ;
     $$('.typ-sprzedazy .chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.typ === s.typ)));
+    setTimeout(pokazEtap);
     odswiezWysylke();
     odswiezSume();
     odswiezMagazyn();
