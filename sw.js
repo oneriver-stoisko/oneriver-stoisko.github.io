@@ -1,6 +1,6 @@
 // Service worker stoiska: trzyma pliki aplikacji w pamięci urządzenia, żeby działała bez internetu.
 // Przy każdej nowej wersji zmień WERSJA (i WERSJA w js/konfiguracja.js).
-const WERSJA = 'or-stoisko-0.21.4';
+const WERSJA = 'or-stoisko-0.21.5';
 const OCR = 'or-stoisko-ocr';   // pliki rozpoznawania tekstu – pobierane przy pierwszym użyciu, potem z pamięci
 const PLIKI = [
   './', './index.html', './css/stoisko.css', './manifest.webmanifest',
@@ -11,7 +11,8 @@ const PLIKI = [
 const CZCIONKI = 'or-stoisko-czcionki';
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(WERSJA).then(c => c.addAll(PLIKI)).then(() => self.skipWaiting()));
+  // cache: 'reload' – pliki prosto z serwera, nie z pamięci przeglądarki (inaczej nowa wersja mogła zapisać stare pliki)
+  e.waitUntil(caches.open(WERSJA).then(c => c.addAll(PLIKI.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
