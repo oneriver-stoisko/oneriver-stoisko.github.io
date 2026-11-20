@@ -768,3 +768,8 @@ a.dup-pasek { display: block; text-decoration: none; font-weight: 700; }
 .qr-zakladki { justify-content: center; margin-bottom: 10px; }
 .qr-kod svg { width: min(280px, 72vw); height: auto; background: #fff; border-radius: 10px; }
 .qr-kod p { font-size: 14.5px; color: var(--szary); margin: 8px 0 0; text-align: left; }
+.qr-opis-revolut { text-align: center !important; color: var(--atrament) !important; font-size: 15px !important; }
+.qr-opis-revolut b { display: block; font-family: var(--font-liczby); font-size: 26px; letter-spacing: .02em; user-select: all; }
+.qr-revolut-strona { text-align: left; margin-top: 10px; }
+.qr-revolut-strona summary { cursor: pointer; color: var(--link); font-weight: 700; font-size: 14.5px; }
+.qr-revolut-strona svg { margin-top: 8px; width: min(220px, 60vw); }
