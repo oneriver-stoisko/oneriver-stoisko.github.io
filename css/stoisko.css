@@ -773,3 +773,4 @@ a.dup-pasek { display: block; text-decoration: none; font-weight: 700; }
 .qr-revolut-strona { text-align: left; margin-top: 10px; }
 .qr-revolut-strona summary { cursor: pointer; color: var(--link); font-weight: 700; font-size: 14.5px; }
 .qr-revolut-strona svg { margin-top: 8px; width: min(220px, 60vw); }
+.qr-link { text-align: center !important; margin: 4px 0 0 !important; font-size: 14px !important; }
