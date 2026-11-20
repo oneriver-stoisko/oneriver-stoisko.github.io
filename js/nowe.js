@@ -499,7 +499,8 @@ function wejscie(e) {
       if (!s.nazwa && k.nazwa) { s.nazwa = k.nazwa; $('[data-pole="nazwa-klienta"]').value = k.nazwa; }
       if (!s.email && k.email) { s.email = k.email; $('[data-pole="email"]').value = k.email; }
     }
-    ustawKlienta(k || (biezacyKlient() && !telefonE164(biezacyKlient().telefon) ? biezacyKlient() : null));
+    // przy edycji zamówienia nowy numer to zwykle poprawka telefonu tego samego klienta – klient zostaje
+    ustawKlienta(k || (biezacyKlient() && (s.tryb === 'edycja' || !telefonE164(biezacyKlient().telefon)) ? biezacyKlient() : null));
     const pp = $('#podp-kl'); if (pp) pp.innerHTML = k ? '' : htmlPodpowiedzi(v, { wybranyId: s.klientId });
     $('#opis-klienta').textContent = opisKlienta();
     const j = $('#jezyk'); if (j && !s.jezyk) j.innerHTML = htmlJezyka();
@@ -759,9 +760,11 @@ async function zapiszStan() {
       if (k) {
         klientIdZ = k.id;
         const uzup = {};
-        if (!k.nazwa && nazwa) uzup.nazwa = nazwa;
-        if (!k.email && email) uzup.email = email;
-        if (!k.telefon && tel) uzup.telefon = tel;
+        // przy edycji zamówienia zmiana imienia, e-maila lub telefonu to poprawka danych tego klienta – zapisujemy ją;
+        // przy nowym zamówieniu tylko uzupełniamy brakujące dane (np. „Ania” nie nadpisze „Anna Kowalska”)
+        if (nazwa && (edycja ? k.nazwa !== nazwa : !k.nazwa)) uzup.nazwa = nazwa;
+        if (email && (edycja ? String(k.email || '').toLowerCase() !== email.toLowerCase() : !k.email)) uzup.email = email;
+        if (tel && (edycja ? telefonE164(k.telefon) !== tel : !k.telefon)) uzup.telefon = tel;
         if (adresKlienta && k.adres !== adresKlienta) uzup.adres = adresKlienta;
         if (Object.keys(uzup).length) paczki.KLIENCI.push({ ...k, ...uzup });
       } else {
