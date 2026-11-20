@@ -208,12 +208,13 @@ function htmlWaluty() {
   const eur = s.waluta === 'EUR';
   return `<div class="chipy male waluta">
       <button type="button" class="chip" data-akcja="waluta" data-v="PLN" aria-pressed="${!eur}">PLN</button>
-      <button type="button" class="chip" data-akcja="waluta" data-v="EUR" aria-pressed="${eur}">EUR – przelew na konto w euro</button>
+      <button type="button" class="chip" data-akcja="waluta" data-v="EUR" aria-pressed="${eur}">EUR (€)</button>
     </div>
     ${eur ? `<div class="eur-panel">
       <p class="podpowiedz">${k ? `Kurs NBP ${esc(String(k.kurs).replace('.', ','))} zł (tabela ${esc(k.tabela || '')} z ${esc(k.data || '')}).` : 'Pobieram kurs NBP…'}
-        ${ustawienia().platnosc.kontoEur ? '' : '<b class="blad">Uzupełnij konto EUR (IBAN) w Ustawieniach.</b>'}</p>
-      <label class="cena eur-kwota"><span>Do zapłaty w euro (zaokrąglone; możesz poprawić)</span>
+        ${ustawienia().platnosc.kontoEur || kwotyPlatnosci().every(p => p.forma === 'Gotówka') ? '' : '<b class="blad">Uzupełnij konto EUR (IBAN) w Ustawieniach.</b>'}</p>
+      <p class="podpowiedz">${kwotyPlatnosci().some(p => p.forma === 'Gotówka') ? 'Gotówka w euro – w kasie zapisze się kwota w euro.' : 'Przelew na konto w euro (IBAN z Ustawień).'}</p>
+      <label class="cena eur-kwota"><span>${kwotyPlatnosci().every(p => p.forma === 'Gotówka') ? 'Klient płaci gotówką w euro (zaokrąglone; możesz poprawić)' : 'Do zapłaty w euro (zaokrąglone; możesz poprawić)'}</span>
         <input data-pole="eur" inputmode="decimal" autocomplete="off" value="${esc(s.eurTxt)}" placeholder="${esc(isFinite(sumaEurWyliczona()) ? String(sumaEurWyliczona()) : '')}"></label>
       <p class="podpowiedz">${esc(kwotaTxt(suma()))} ≈ <b id="suma-eur">${isFinite(sumaEur()) ? esc(String(sumaEur()).replace('.', ',')) + ' €' : '—'}</b></p>
     </div>` : ''}`;
@@ -878,8 +879,10 @@ async function zapiszStan() {
     let nowy = '';
     const tel = telefonE164(s.telefon);
     const email = s.email.trim();
-    const nazwa = s.nazwa.trim();
+    let nazwa = s.nazwa.trim();
     const adresKlienta = s.typ === 'wysylka' ? [s.paczkomat.trim(), s.adres.trim()].filter(Boolean).join(', ') : '';
+    // sprzedaż na miejscu za gotówkę bez danych klienta → wspólny klient „Nieznany” (jeden wpis, nie nowy przy każdej sprzedaży)
+    if (!tel && !email && !nazwa && !biezacyKlient() && s.typ !== 'wysylka' && kwotyPlatnosci().every(p => p.forma === 'Gotówka')) nazwa = 'Nieznany';
     if (tel || nazwa || email) {
       const k = biezacyKlient() || (tel && klientPoTelefonie(tel)) || (email && dane.klienci.find(x => String(x.email || '').toLowerCase() === email.toLowerCase()))
         || klientPoNazwie(nazwa, tel, email) || null;
@@ -947,6 +950,9 @@ async function zapiszStan() {
       koszt_dostawy: wysylka ? transport : 0,
       adres_dostawy: wysylka ? (!czyInPost(s.przewoznik) ? s.adres.trim() : [s.paczkomat.trim(), s.adres.trim()].filter(Boolean).join(', ')) : '',
       waluta: s.waluta === 'EUR' ? 'EUR' : '', kurs: s.waluta === 'EUR' ? (stare?.waluta === 'EUR' && stare.kurs ? stare.kurs : kursEur() || '') : '', suma_eur: s.waluta === 'EUR' ? sumaEur() : '',
+      // gotówka w euro: ile euro faktycznie wpłynęło do kasy (kw_gotowka zostaje w zł – do zestawień)
+      gotowka_eur: s.waluta === 'EUR' && sumaFormy('Gotówka') > 0
+        ? (zaokr(sumaFormy('Gotówka')) >= zaokr(razem) - 0.005 ? sumaEur() : Math.round(sumaFormy('Gotówka') / (kursEur() || 1))) : '',
       jezyk: jezykWiadomosci(),
       nr_przesylki: wysylka ? s.nrPrzesylki.trim() : '', kod_nadania: wysylka ? s.kodNadania.trim() : '',
       realizuje: wysylka ? s.realizuje : '',
