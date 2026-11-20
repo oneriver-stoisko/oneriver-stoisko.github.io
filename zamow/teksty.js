@@ -209,3 +209,64 @@ export const KATEGORIE = {
 /** Kraje dostawy: Polska, potem Europa, na końcu inne. */
 export const KRAJE = ['PL', 'DE', 'FR', 'ES', 'IT', 'NL', 'BE', 'AT', 'CZ', 'SK', 'LT', 'LV', 'EE', 'HU', 'RO', 'BG', 'HR', 'SI', 'PT', 'IE', 'LU',
   'DK', 'SE', 'FI', 'GR', 'CY', 'MT', 'GB', 'CH', 'NO', 'IS', 'US', 'CA', 'AU', 'CO', 'MX', 'BR'];
+
+// ───────────────────────── nazwy i opisy metod dostawy (wpisywane po polsku w Stoisku) ─────────────────────────
+// Całe opisy tłumaczymy ze słownika; w nazwach podmieniamy znane fragmenty. Nieznany tekst zostaje bez zmian.
+const OPISY = {
+  'podaj numer paczkomatu, np. waw123m': { en: 'Enter the parcel locker ID, e.g. WAW123M', es: 'Indica el código del Paczkomat, p. ej. WAW123M', fr: 'Indiquez le code du casier, p. ex. WAW123M', de: 'Gib die Nummer des Paketautomaten ein, z. B. WAW123M' },
+  'wybierz paczkomat na mapie albo wpisz jego numer': { en: 'Choose a parcel locker on the map or type its ID', es: 'Elige la taquilla en el mapa o escribe su código', fr: 'Choisissez un casier sur la carte ou saisissez son code', de: 'Wähle den Paketautomaten auf der Karte oder gib seine Nummer ein' },
+  'dostawa pod wskazany adres': { en: 'Delivery to your address', es: 'Entrega en tu dirección', fr: 'Livraison à votre adresse', de: 'Lieferung an deine Adresse' },
+  'płacisz w paczkomacie przy odbiorze': { en: 'You pay at the parcel locker when you collect it', es: 'Pagas en la taquilla al recoger el paquete', fr: 'Vous payez au casier lors du retrait', de: 'Du zahlst am Paketautomaten bei der Abholung' },
+  'płacisz kurierowi przy odbiorze': { en: 'You pay the courier on delivery', es: 'Pagas al mensajero en la entrega', fr: 'Vous payez le coursier à la livraison', de: 'Du zahlst bei Lieferung an den Kurier' },
+  'paczka pocztowa pod wskazany adres': { en: 'Postal parcel to your address', es: 'Paquete postal a tu dirección', fr: 'Colis postal à votre adresse', de: 'Postpaket an deine Adresse' },
+  'płacisz listonoszowi albo w placówce przy odbiorze': { en: 'You pay the postman or at the post office on collection', es: 'Pagas al cartero o en la oficina de correos', fr: 'Vous payez le facteur ou au bureau de poste', de: 'Du zahlst beim Briefträger oder in der Postfiliale' },
+  'umówimy się telefonicznie': { en: 'We will arrange it by phone', es: 'Lo acordaremos por teléfono', fr: 'Nous conviendrons du rendez-vous par téléphone', de: 'Wir vereinbaren das telefonisch' },
+};
+const FRAGMENTY = [
+  ['za pobraniem', { en: 'cash on delivery', es: 'contra reembolso', fr: 'paiement à la livraison', de: 'Nachnahme' }],
+  ['paczkomat inpost', { en: 'InPost parcel locker', es: 'Taquilla InPost (Paczkomat)', fr: 'Casier InPost (Paczkomat)', de: 'InPost-Paketautomat' }],
+  ['kurier inpost', { en: 'InPost courier', es: 'Mensajero InPost', fr: 'Coursier InPost', de: 'InPost-Kurier' }],
+  ['kurier', { en: 'Courier', es: 'Mensajero', fr: 'Coursier', de: 'Kurier' }],
+  ['poczta polska', { en: 'Polish Post', es: 'Correos de Polonia', fr: 'Poste polonaise', de: 'Polnische Post' }],
+  ['odbiór osobisty', { en: 'Personal pickup', es: 'Recogida en persona', fr: 'Retrait sur place', de: 'Selbstabholung' }],
+  ['warszawa', { en: 'Warsaw', es: 'Varsovia', fr: 'Varsovie', de: 'Warschau' }],
+  ['paczkomat', { en: 'parcel locker', es: 'taquilla', fr: 'casier', de: 'Paketautomat' }],
+];
+const kluczOpisu = t => String(t || '').toLowerCase().replace(/\s+/g, ' ').replace(/np\.\s*/g, 'np. ').trim().replace(/[.]$/, '');
+/** Nazwa albo opis metody dostawy w języku formularza. */
+export function tlumaczDostawe(tekst, jezyk) {
+  if (!tekst || jezyk === 'pl') return tekst;
+  const caly = OPISY[kluczOpisu(tekst)];
+  if (caly && caly[jezyk]) return caly[jezyk];
+  let wynik = String(tekst);
+  FRAGMENTY.forEach(([pl, tl]) => {
+    if (!tl[jezyk]) return;
+    wynik = wynik.replace(new RegExp(pl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), m => (m[0] === m[0].toUpperCase() ? tl[jezyk][0].toUpperCase() + tl[jezyk].slice(1) : tl[jezyk]));
+  });
+  return wynik;
+}
+
+// ───────────────────────── komunikaty serwera (skrypt odpowiada po polsku) ─────────────────────────
+const BLEDY = [
+  [/^Podaj imię i nazwisko/, { en: 'Please enter your full name.', es: 'Escribe tu nombre y apellidos.', fr: 'Saisissez votre nom et prénom.', de: 'Bitte gib deinen Vor- und Nachnamen ein.' }],
+  [/^Podaj poprawny numer telefonu/, { en: 'Please enter a valid phone number.', es: 'Escribe un teléfono válido.', fr: 'Saisissez un numéro de téléphone valide.', de: 'Bitte gib eine gültige Telefonnummer ein.' }],
+  [/^Sprawdź adres e-mail/, { en: 'Please check your e-mail address.', es: 'Revisa tu correo electrónico.', fr: 'Vérifiez votre adresse e-mail.', de: 'Bitte prüfe deine E-Mail-Adresse.' }],
+  [/^Koszyk jest pusty/, { en: 'Your basket is empty.', es: 'Tu cesta está vacía.', fr: 'Votre panier est vide.', de: 'Dein Warenkorb ist leer.' }],
+  [/^Za dużo pozycji/, { en: 'Too many items in one order.', es: 'Demasiados productos en un pedido.', fr: 'Trop d’articles dans une commande.', de: 'Zu viele Artikel in einer Bestellung.' }],
+  [/^Produktu (.+) nie ma już w ofercie/, { en: '$1 is no longer available – please reload the page.', es: '$1 ya no está disponible – recarga la página.', fr: '$1 n’est plus disponible – rechargez la page.', de: '$1 ist nicht mehr verfügbar – bitte lade die Seite neu.' }],
+  [/^Sprawdź ilość: (.+)\.$/, { en: 'Check the quantity: $1.', es: 'Revisa la cantidad: $1.', fr: 'Vérifiez la quantité : $1.', de: 'Prüfe die Menge: $1.' }],
+  [/^(.+): dostępne tylko (\d+) szt\./, { en: '$1: only $2 available.', es: '$1: solo quedan $2.', fr: '$1 : seulement $2 disponible(s).', de: '$1: nur noch $2 verfügbar.' }],
+  [/^(.+) jest chwilowo niedostępny/, { en: '$1 is temporarily out of stock.', es: '$1 está agotado por ahora.', fr: '$1 est momentanément épuisé.', de: '$1 ist vorübergehend ausverkauft.' }],
+  [/^Wybierz sposób dostawy/, { en: 'Please choose a delivery method.', es: 'Elige un método de envío.', fr: 'Choisissez un mode de livraison.', de: 'Bitte wähle eine Versandart.' }],
+  [/^Ta metoda dostawy nie jest dostępna/, { en: 'This delivery method is not available for the selected country.', es: 'Este método de envío no está disponible para el país elegido.', fr: 'Ce mode de livraison n’est pas disponible pour ce pays.', de: 'Diese Versandart ist für das gewählte Land nicht verfügbar.' }],
+  [/^Uzupełnij adres dostawy|^Podaj adres dostawy/, { en: 'Please complete the delivery address.', es: 'Completa la dirección de entrega.', fr: 'Complétez l’adresse de livraison.', de: 'Bitte vervollständige die Lieferadresse.' }],
+  [/^Za dużo prób/, { en: 'Too many attempts – please try again in a minute.', es: 'Demasiados intentos – inténtalo dentro de un minuto.', fr: 'Trop de tentatives – réessayez dans une minute.', de: 'Zu viele Versuche – bitte versuche es in einer Minute erneut.' }],
+  [/^Nie znamy takiego kodu/, { en: 'We do not recognise this code.', es: 'No reconocemos este código.', fr: 'Ce code est inconnu.', de: 'Diesen Code kennen wir nicht.' }],
+  [/^InPost nie odpowiada/, { en: 'InPost is not responding – please type the locker ID instead.', es: 'InPost no responde – escribe el código de la taquilla.', fr: 'InPost ne répond pas – saisissez le code du casier.', de: 'InPost antwortet nicht – bitte gib die Automatennummer ein.' }],
+];
+/** Komunikat ze skryptu w języku formularza (nieznany zostaje po polsku). */
+export function tlumaczBlad(tekst, jezyk) {
+  if (!tekst || jezyk === 'pl') return tekst;
+  for (const [wzor, tl] of BLEDY) { const m = wzor.exec(tekst); if (m && tl[jezyk]) return tl[jezyk].replace(/\$(\d)/g, (_, i) => m[+i] || ''); }
+  return tekst;
+}

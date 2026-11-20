@@ -57,14 +57,19 @@ window.addEventListener('hashchange', function () { location.reload(); });
   var grupuj = function (k) { var c = k.replace(/\s+/g, ''); return /^[A-Z]{2}/.test(c) ? c.replace(/(.{4})(?=.)/g, '$1 ') : c.replace(/^(\d{2})(\d+)$/, function (_, a, b) { return a + ' ' + b.replace(/(\d{4})(?=\d)/g, '$1 '); }); };
   var n = p.get('n') || '', k = p.get('k') || '', w = p.get('w') || 'PLN';
   var kwotaPokaz = k ? (w === 'EUR' ? (en ? '€' + k : k.replace('.', ',') + ' €') : k.replace('.', ',') + ' zł') : '';
-  var konto = p.get('a') || '', blik = p.get('b') || '';
-  var html = '<p class="marka">ONE RIVER</p><h1>' + esc(T.tytul) + '</h1><p class="opis">' + esc(T.opis) + '</p>';
+  var tylkoRevolut = p.get('m') === 'r';   // kod QR „Revolut” ze Stoiska: tylko numer, kwota i przycisk do Revoluta
+  var konto = tylkoRevolut ? '' : p.get('a') || '', blik = tylkoRevolut ? '' : p.get('b') || '';
+  var html = '<p class="marka">ONE RIVER</p><h1>' + esc(tylkoRevolut ? 'Revolut' : T.tytul) + '</h1><p class="opis">' + esc(tylkoRevolut
+    ? (en ? '1. Copy the order number. 2. Tap “Open Revolut”. 3. Enter the amount and paste the number in the note.' : '1. Skopiuj numer zamówienia. 2. Dotknij „Otwórz Revolut”. 3. Wpisz kwotę i wklej numer w opisie płatności.')
+    : T.opis) + '</p>';
   if (!n) { document.getElementById('m').innerHTML = html + '<p class="brak">' + esc(T.brak) + '</p>'; return; }
   html += pole(T.nr, n, n, true) + pole(T.kw, kwotaPokaz, k.replace('.', en ? '.' : ','));
   if (konto) html += '<h2>' + esc(T.przelew) + '</h2>' + pole(T.od, p.get('o'), p.get('o')) + (p.get('ad') ? pole(T.ad, p.get('ad'), p.get('ad')) : '') + pole(/^[A-Z]{2}/.test(konto) ? T.iban : T.konto, grupuj(konto), konto.replace(/\s+/g, '')) + pole(T.swift, p.get('s'), p.get('s'));
   if (blik) html += '<h2>' + esc(T.inne) + '</h2>' + pole(T.blik, blik.replace(/^(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3'), blik);
   var rev = (p.get('r') || '').replace(/[^A-Za-z0-9._-]/g, '');
-  if (rev) html += '<h2>Revolut</h2><a class="pole glowne revolut" href="https://revolut.me/' + rev + '" target="_blank" rel="noopener"><div><div class="etykieta">' + esc(en ? 'Pay with Revolut – enter the amount and the order number' : 'Zapłać Revolutem – wpisz kwotę i numer zamówienia') + '</div><div class="wartosc">revolut.me/' + esc(rev) + ' →</div></div></a>';
+  if (rev) html += (tylkoRevolut ? '' : '<h2>Revolut</h2>') + '<a class="pole glowne revolut" href="https://revolut.me/' + rev + '" target="_blank" rel="noopener"><div><div class="etykieta">'
+    + esc(tylkoRevolut ? (en ? 'Then open Revolut' : 'Potem otwórz Revolut') : (en ? 'Pay with Revolut – enter the amount and the order number' : 'Zapłać Revolutem – wpisz kwotę i numer zamówienia'))
+    + '</div><div class="wartosc">' + esc(tylkoRevolut ? (en ? 'Open Revolut →' : 'Otwórz Revolut →') : 'revolut.me/' + rev + ' →') + '</div></div></a>';
   html += '<p class="stopka">' + (en ? 'Thank you!' : 'Dziękujemy!') + ' · <a href="https://oneriver.pl">oneriver.pl</a></p>';
   document.getElementById('m').innerHTML = html;
 

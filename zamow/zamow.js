@@ -4,7 +4,7 @@
 // Oferta, ceny i cennik dostaw przychodzą ze skryptu arkusza (akcja „sklep”); zamówienie wysyła akcja „zamow”.
 // Link z #kod=… pokazuje ceny klienta i wpisuje jego dane; #lang=en|es|fr|de ustawia język.
 
-import { T, JEZYKI, KATEGORIE, KRAJE } from './teksty.js?v=5';
+import { T, JEZYKI, KATEGORIE, KRAJE, tlumaczDostawe, tlumaczBlad } from './teksty.js?v=6';
 
 const API = 'https://script.google.com/macros/s/AKfycbwFcvYtbGMBPlJCT_QDzXfnFvnnEQQt1EqFrjnhEKgeg7lo22JuRwFxOK5-vZGcVwg9CQ/exec';
 const KOLEJNOSC = ['Rapé', 'Akcesoria do rapé', 'Zielarnia i olejki', 'Biżuteria', 'Odzież', 'Wystrój wnętrz i inne', 'Instrumenty etniczne'];
@@ -72,7 +72,7 @@ async function api(akcja, dane = {}) {
   }
   let j;
   try { j = await odp.json(); } catch { throw new Error(t('serwer')); }
-  if (!j.ok) throw new Error(j.blad || 'Error');
+  if (!j.ok) throw new Error(tlumaczBlad(j.blad, s.jezyk) || 'Error');
   return j.dane;
 }
 
@@ -263,7 +263,7 @@ function htmlDostawa() {
       </select></label>
     ${s.kraj === 'XX' ? `<label class="pole"><span>${esc(t('nazwaKraju'))} *</span><input data-pole="krajNazwa" value="${esc(s.krajNazwa)}" autocomplete="country-name"></label>` : ''}
     ${!s.kraj ? '' : lista.length ? `<div class="wybory">${lista.map(w => `<label class="wybor"><input type="radio" name="dostawa" value="${esc(w.id)}" data-pole="dostawa" ${s.dostawa === w.id ? 'checked' : ''}>
-        <span class="w-tekst"><b>${esc(w.nazwa)}</b>${w.opis ? `<small>${esc(w.opis)}</small>` : ''}${w.pobranie && !/odbior|pobrani/i.test(norm(w.opis)) ? `<small>${esc(t('placiszPrzyOdbiorze'))}</small>` : ''}${w.do_ustalenia && !w.opis ? `<small>${esc(t('doUstaleniaOpis'))}</small>` : ''}</span>
+        <span class="w-tekst"><b>${esc(tlumaczDostawe(w.nazwa, s.jezyk))}</b>${w.opis ? `<small>${esc(tlumaczDostawe(w.opis, s.jezyk))}</small>` : ''}${w.pobranie && !/odbior|pobrani/i.test(norm(w.opis)) ? `<small>${esc(t('placiszPrzyOdbiorze'))}</small>` : ''}${w.do_ustalenia && !w.opis ? `<small>${esc(t('doUstaleniaOpis'))}</small>` : ''}</span>
         ${htmlCenyMetody(w)}</label>`).join('')}</div>` : `<p class="pasek-klienta">${esc(t('brakMetod'))}</p>`}
     ${d?.adres ? htmlAdresu(d) : doWyceny() ? htmlPolAdresu(null) : ''}
     ${(d && !d.pobranie) || doWyceny() ? `<h2>${esc(t('platnosc'))}</h2>
@@ -313,7 +313,7 @@ function htmlDane() {
     <section class="podsumowanie" aria-label="${esc(t('podsumowanie'))}">
       <h2>${esc(t('podsumowanie'))}</h2>
       <ul>${poz.map(p => `<li><span>${esc(p.g.nazwa)}${p.w.w ? ' ' + esc(p.w.w) : ''} × ${p.ilosc}</span><b>${esc(kwota(zaokr(wWalucie(p.w.cena) * p.ilosc)))}</b></li>`).join('')}
-        <li><span>${esc(d ? d.nazwa : t('doWyceny'))}${(d?.adres || doWyceny()) ? `<small>${esc(potrzebaPolAdresu() ? adresTekst() : s.adres)}${zagranica() ? ', ' + esc(s.kraj === 'XX' ? s.krajNazwa : nazwaKraju(s.kraj)) : ''}${potrzebaPolAdresu() && s.adresPola.uwagi ? ' · ' + esc(s.adresPola.uwagi) : ''}</small>` : ''}</span>
+        <li><span>${esc(d ? tlumaczDostawe(d.nazwa, s.jezyk) : t('doWyceny'))}${(d?.adres || doWyceny()) ? `<small>${esc(potrzebaPolAdresu() ? adresTekst() : s.adres)}${zagranica() ? ', ' + esc(s.kraj === 'XX' ? s.krajNazwa : nazwaKraju(s.kraj)) : ''}${potrzebaPolAdresu() && s.adresPola.uwagi ? ' · ' + esc(s.adresPola.uwagi) : ''}</small>` : ''}</span>
           <b>${koszt === null ? esc(t('doUstalenia')) : koszt ? esc(kwota(koszt)) : esc(t('gratis'))}</b></li></ul>
       <p class="razem">${esc(koszt === null ? t('razemPlus') : t('razem'))}: <b>${esc(kwota(razem()))}</b></p>
       <p class="drobne">${esc(d?.pobranie ? t('placiszPrzyOdbiorzeTxt') : t('platnoscTxt', { f: forma.toLowerCase() }))}

@@ -106,8 +106,8 @@ async function pokazQrPlatnosci() {
       <p>Klient skanuje kod <b>w aplikacji swojego banku</b> (opcja „Skanuj”, „Płatność QR” albo „Zdjęcie faktury”) – przelew wypełni się sam: odbiorca, konto, kwota i tytuł.</p></div>` : ''}
     <div class="qr-kod" data-qr-kod="strona" ${start === 'strona' ? '' : 'hidden'}>${svgQr(qr, strona)}
       <p>Klient skanuje kod <b>aparatem telefonu</b> – otworzy się strona z numerem do BLIK-a${platnosc.blik ? ` (${esc(platnosc.blik)})` : ''}, numerem konta, kwotą i tytułem do skopiowania jednym dotknięciem.</p></div>
-    ${revolut ? `<div class="qr-kod" data-qr-kod="revolut" ${start === 'revolut' ? '' : 'hidden'}>${svgQr(qr, revolut)}
-      <p>Klient skanuje kod <b>aparatem telefonu</b> – otworzy się Revolut (albo strona Revolut z płatnością kartą) z Twoim profilem. Kwotę <b>${esc(kwotaTxt(doZaplaty))}</b> i tytuł <b>${esc(numer)}</b> klient wpisuje sam.</p></div>` : ''}
+    ${revolut ? `<div class="qr-kod" data-qr-kod="revolut" ${start === 'revolut' ? '' : 'hidden'}>${svgQr(qr, strona + '&m=r')}
+      <p>Klient skanuje kod <b>aparatem telefonu</b> – zobaczy numer zamówienia <b>${esc(numer)}</b> i kwotę do skopiowania jednym dotknięciem oraz przycisk „Otwórz Revolut”. W Revolucie wpisuje kwotę i wkleja numer w opis płatności (Revolut nie pozwala wpisać ich z góry).</p></div>` : ''}
   </div>`;
   const zakladki = e => {
     const b = e.target.closest('[data-qr]');
