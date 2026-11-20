@@ -1,7 +1,7 @@
 // Stałe aplikacji stoiska. Dane do płatności są domyślne dla wszystkich urządzeń;
 // na danym urządzeniu można je zmienić w Ustawieniach.
 
-export const WERSJA = '0.21.0';
+export const WERSJA = '0.21.1';
 
 // Stoisko ma własny adres (osobna „strona” dla telefonu – inaczej Chrome na Androidzie myli je z Finansami).
 export const ADRES_STOISKA = 'https://oneriver-stoisko.github.io/';
@@ -33,10 +33,13 @@ export const FORMY = [
   ['BLIK', 'BLIK na telefon'],
   ['Gotówka', 'Gotówka'],
   ['Karta', 'Karta'],
+  ['Revolut', 'Revolut'],
   ['Pobranie', 'Za pobraniem'],
 ];
 // Formy, przy których klient płaci później – SMS zawiera dane do płatności.
-export const PLATNE_POZNIEJ = new Set(['Przelew', 'BLIK', 'Pobranie']);
+export const PLATNE_POZNIEJ = new Set(['Przelew', 'BLIK', 'Revolut', 'Pobranie']);
+/** Link do profilu Revolut (Revtag z Ustawień, np. „@darius” → https://revolut.me/darius). */
+export const linkRevolut = tag => { const t = String(tag || '').trim().replace(/^@/, '').replace(/^https?:\/\/revolut\.me\//i, '').replace(/[^A-Za-z0-9._-]/g, ''); return t ? 'https://revolut.me/' + t : ''; };
 // Za pobraniem: klient płaci przy odbiorze (kurier/listonosz), pieniądze przychodzą przelewem od przewoźnika – w Finansach jak przelew.
 export const POBRANIE = 'Pobranie';
 

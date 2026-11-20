@@ -2,7 +2,7 @@
 // Wiadomość wysyła sprzedawca z telefonu – SMS działa także bez internetu (przez sieć komórkową).
 
 import { ustawienia } from './api.js';
-import { PLATNE_POZNIEJ, czyTransport, linkSledzeniaPrzewoznika, MIEDZYNARODOWY, czyInPost } from './konfiguracja.js';
+import { PLATNE_POZNIEJ, czyTransport, linkSledzeniaPrzewoznika, MIEDZYNARODOWY, czyInPost, linkRevolut } from './konfiguracja.js';
 import { kwotaTxt, iloscTxt, num } from './util.js';
 import { telefonE164, klient } from './dane.js';
 
@@ -28,6 +28,7 @@ export function linkPlatnosci(zam, kwota, eur, en) {
   } else {
     if (platnosc.konto) { q.set('o', platnosc.odbiorca || ''); q.set('a', String(platnosc.konto).replace(/\s+/g, '')); if (platnosc.adres) q.set('ad', platnosc.adres); }
     if (platnosc.blik) q.set('b', String(platnosc.blik).replace(/\D/g, ''));
+    if (linkRevolut(platnosc.revolut)) q.set('r', linkRevolut(platnosc.revolut).replace('https://revolut.me/', ''));
   }
   if (en) q.set('j', 'en');
   return `${STRONA_PLATNOSCI}#${q.toString()}`;
@@ -107,6 +108,7 @@ function trescEN(zam, pozycje) {
     linie.push(`To pay: ${kwotaTxt(Math.round(doZaplaty * 100) / 100)}`);
     if (platnosc.konto) linie.push(`• bank transfer: ${platnosc.odbiorca}${platnosc.adres ? ', ' + platnosc.adres : ''}, account ${platnosc.konto}`);
     if (platnosc.blik) linie.push(`• BLIK (Polish mobile payment) to: ${platnosc.blik}`);
+    if (linkRevolut(platnosc.revolut)) linie.push(`• Revolut: ${linkRevolut(platnosc.revolut)}`);
     linie.push('Please put the order number in the transfer title:', zam.id, '', 'Copy the order number and payment details with one tap:', linkPlatnosci(zam, doZaplaty, false, true));
   }
   linie.push('', 'Thank you! oneriver.pl');
@@ -158,6 +160,7 @@ export function trescWiadomosci(zam, pozycje) {
     linie.push(`Do zapłaty: ${kwotaTxt(Math.round(doZaplaty * 100) / 100)}`);
     if (platnosc.konto) linie.push(`• przelew: ${platnosc.odbiorca}${platnosc.adres ? ', ' + platnosc.adres : ''}, nr konta ${platnosc.konto}`);
     if (platnosc.blik) linie.push(`• BLIK na telefon: ${platnosc.blik}`);
+    if (linkRevolut(platnosc.revolut)) linie.push(`• Revolut: ${linkRevolut(platnosc.revolut)}`);
     linie.push('Prosimy wpisać w tytule przelewu numer zamówienia:', zam.id, '', 'Numer zamówienia i dane do płatności skopiujesz jednym dotknięciem:', linkPlatnosci(zam, doZaplaty, false, false));
   }
   linie.push('', 'Dziękujemy! oneriver.pl');

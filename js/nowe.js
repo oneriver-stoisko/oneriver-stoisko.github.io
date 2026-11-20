@@ -13,6 +13,7 @@ import { FORMY, POBRANIE, STATUSY, OSOBY_WYSYLKI, SYMBOL_TRANSPORTU, TRANSPORT_D
 import { rozpoznaj } from './inpost.js';
 import * as sync from './sync.js';
 import { linkPlatnosci } from './wiadomosc.js';
+import { linkRevolut } from './konfiguracja.js';
 
 // ───────────────────────── etapy na telefonie ─────────────────────────
 // Na telefonie zamówienie przechodzi się krokami (jak u Grażynki); na komputerze i tablecie w poziomie zostaje układ w dwóch kolumnach.
@@ -89,18 +90,24 @@ async function pokazQrPlatnosci() {
   const { platnosc } = ustawienia();
   let qr;
   try { qr = await zaladujQr(); } catch (err) { toast(err.message, 'blad', 5000); return; }
-  const przelew = kodPrzelewu(doZaplaty, `Zamowienie ${numer}`);
+  const przelew = kodPrzelewu(doZaplaty, numer);
+  const revolut = linkRevolut(platnosc.revolut);
+  // zakładka na start: Revolut, gdy klient płaci Revolutem; inaczej przelew w aplikacji banku
+  const start = revolut && kw.some(p => p.forma === 'Revolut' && !p.zaplacone) ? 'revolut' : przelew ? 'bank' : 'strona';
   const strona = linkPlatnosci({ id: numer }, doZaplaty, false, false);
   const html = `<div class="qr-platnosc">
     <p class="qr-kwota">${esc(kwotaTxt(doZaplaty))}<small>zamówienie ${esc(numer)}</small></p>
     <div class="chipy male qr-zakladki">
-      ${przelew ? '<button type="button" class="chip" data-qr="bank" aria-pressed="true">Przelew – aplikacja banku</button>' : ''}
-      <button type="button" class="chip" data-qr="strona" aria-pressed="${przelew ? 'false' : 'true'}">BLIK i dane do przelewu</button>
+      ${przelew ? `<button type="button" class="chip" data-qr="bank" aria-pressed="${start === 'bank'}">Przelew – aplikacja banku</button>` : ''}
+      <button type="button" class="chip" data-qr="strona" aria-pressed="${start === 'strona'}">BLIK i dane do przelewu</button>
+      ${revolut ? `<button type="button" class="chip" data-qr="revolut" aria-pressed="${start === 'revolut'}">Revolut</button>` : ''}
     </div>
-    ${przelew ? `<div class="qr-kod" data-qr-kod="bank">${svgQr(qr, przelew)}
+    ${przelew ? `<div class="qr-kod" data-qr-kod="bank" ${start === 'bank' ? '' : 'hidden'}>${svgQr(qr, przelew)}
       <p>Klient skanuje kod <b>w aplikacji swojego banku</b> (opcja „Skanuj”, „Płatność QR” albo „Zdjęcie faktury”) – przelew wypełni się sam: odbiorca, konto, kwota i tytuł.</p></div>` : ''}
-    <div class="qr-kod" data-qr-kod="strona" ${przelew ? 'hidden' : ''}>${svgQr(qr, strona)}
+    <div class="qr-kod" data-qr-kod="strona" ${start === 'strona' ? '' : 'hidden'}>${svgQr(qr, strona)}
       <p>Klient skanuje kod <b>aparatem telefonu</b> – otworzy się strona z numerem do BLIK-a${platnosc.blik ? ` (${esc(platnosc.blik)})` : ''}, numerem konta, kwotą i tytułem do skopiowania jednym dotknięciem.</p></div>
+    ${revolut ? `<div class="qr-kod" data-qr-kod="revolut" ${start === 'revolut' ? '' : 'hidden'}>${svgQr(qr, revolut)}
+      <p>Klient skanuje kod <b>aparatem telefonu</b> – otworzy się Revolut (albo strona Revolut z płatnością kartą) z Twoim profilem. Kwotę <b>${esc(kwotaTxt(doZaplaty))}</b> i tytuł <b>${esc(numer)}</b> klient wpisuje sam.</p></div>` : ''}
   </div>`;
   const zakladki = e => {
     const b = e.target.closest('[data-qr]');
@@ -929,7 +936,7 @@ async function zapiszStan() {
       typ: wysylka ? 'wysylka' : 'miejsce',
       forma_platnosci: formy.length > 1 ? 'Mieszana' : (formy[0] || kw[0].forma),
       platnosci: JSON.stringify(kw.map(p => ({ forma: p.forma, kwota: p.kwota, zaplacone: ZAPLACONE_ZAWSZE.has(p.forma) || Boolean(p.zaplacone) }))),
-      kw_gotowka: sumaFormy('Gotówka'), kw_blik: sumaFormy('BLIK'), kw_przelew: zaokr(sumaFormy('Przelew') + sumaFormy(POBRANIE)), kw_karta: sumaFormy('Karta'),
+      kw_gotowka: sumaFormy('Gotówka'), kw_blik: sumaFormy('BLIK'), kw_przelew: zaokr(sumaFormy('Przelew') + sumaFormy(POBRANIE)), kw_karta: sumaFormy('Karta'), kw_revolut: sumaFormy('Revolut'),
       zaplacono: zapl, suma_brutto: razem, wartosc_produktow: sumaProduktow(),
       dostawa_id: '', dostawa: wysylka ? (!czyInPost(s.przewoznik) ? s.przewoznik : (s.paczkomat.trim() ? 'Paczkomat ' : 'Kurier ') + (s.przewoznik || 'InPost')) : '',
       przewoznik: wysylka ? s.przewoznik : '', oplaca_odbiorca: odbiorcaPlaci() ? 'tak' : '',

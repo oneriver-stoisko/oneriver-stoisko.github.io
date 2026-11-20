@@ -81,6 +81,9 @@ function render(komunikat = '', klasa = '') {
         <input name="adresOdbiorcy" autocomplete="off" value="${esc(u.platnosc.adres)}" placeholder="Nalewki 5/6, 00-187 Warszawa"></label>
       <label class="pole"><span class="etykieta">Telefon do BLIK</span>
         <input name="blik" inputmode="tel" autocomplete="off" value="${esc(u.platnosc.blik)}"></label>
+      <label class="pole"><span class="etykieta">Revolut – nazwa użytkownika (Revtag)</span>
+        <input name="revolut" autocomplete="off" autocapitalize="none" spellcheck="false" value="${esc(u.platnosc.revolut || '')}" placeholder="np. @darius">
+        <span class="podpowiedz">W Revolut: Profil → nazwa pod zdjęciem (@…). Włącz też „Pozwól znaleźć mnie po Revtagu”, żeby płacić mogły osoby spoza Revoluta.</span></label>
 
       <h2>Przelew w euro (klienci zagraniczni)</h2>
       <label class="pole"><span class="etykieta">Odbiorca przelewu EUR</span>
@@ -147,6 +150,7 @@ async function zapisz(form) {
     adres: f.adresOdbiorcy.value.trim() || PLATNOSC_DOMYSLNA.adres,
     konto: f.konto.value.trim(),
     blik: f.blik.value.trim(),
+    revolut: f.revolut.value.trim(),
     odbiorcaEur: f.odbiorcaEur.value.trim(),
     kontoEur: f.kontoEur.value.trim().toUpperCase(),
     swift: f.swift.value.trim().toUpperCase(),

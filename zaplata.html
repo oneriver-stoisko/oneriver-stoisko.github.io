@@ -24,6 +24,7 @@
   .wartosc { font-size: 19px; font-weight: 700; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
   .pole.glowne { border: 2px solid var(--rzeka); }
   .pole.glowne .wartosc { font-size: 24px; }
+  a.pole { color: inherit; text-decoration: none; }
   button { flex: none; border: 0; border-radius: 10px; background: var(--rzeka); color: var(--na-rzece); font: 700 16px/1 inherit; font-family: inherit;
     padding: 0 16px; min-height: 46px; min-width: 96px; cursor: pointer; }
   button.ok { background: var(--ok); color: var(--karta); }
@@ -62,6 +63,8 @@ window.addEventListener('hashchange', function () { location.reload(); });
   html += pole(T.nr, n, n, true) + pole(T.kw, kwotaPokaz, k.replace('.', en ? '.' : ','));
   if (konto) html += '<h2>' + esc(T.przelew) + '</h2>' + pole(T.od, p.get('o'), p.get('o')) + (p.get('ad') ? pole(T.ad, p.get('ad'), p.get('ad')) : '') + pole(/^[A-Z]{2}/.test(konto) ? T.iban : T.konto, grupuj(konto), konto.replace(/\s+/g, '')) + pole(T.swift, p.get('s'), p.get('s'));
   if (blik) html += '<h2>' + esc(T.inne) + '</h2>' + pole(T.blik, blik.replace(/^(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3'), blik);
+  var rev = (p.get('r') || '').replace(/[^A-Za-z0-9._-]/g, '');
+  if (rev) html += '<h2>Revolut</h2><a class="pole glowne revolut" href="https://revolut.me/' + rev + '" target="_blank" rel="noopener"><div><div class="etykieta">' + esc(en ? 'Pay with Revolut – enter the amount and the order number' : 'Zapłać Revolutem – wpisz kwotę i numer zamówienia') + '</div><div class="wartosc">revolut.me/' + esc(rev) + ' →</div></div></a>';
   html += '<p class="stopka">' + (en ? 'Thank you!' : 'Dziękujemy!') + ' · <a href="https://oneriver.pl">oneriver.pl</a></p>';
   document.getElementById('m').innerHTML = html;
 
