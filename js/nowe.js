@@ -71,17 +71,32 @@ function kodPrzelewu(kwota, tytul) {
   const grosze = String(Math.round(kwota * 100)).padStart(6, '0');
   return ['', 'PL', nrb, grosze, bezOgonkow(platnosc.odbiorca).slice(0, 20), bezOgonkow(tytul).slice(0, 32), '', '', ''].join('|');
 }
+/**
+ * Kod QR przelewu SEPA w euro (standard EPC, „GiroCode”) – czytają go aplikacje wielu banków w strefie euro
+ * (m.in. Niemcy, Austria, Holandia, Belgia, Finlandia). Konto EUR (IBAN), odbiorca i BIC z Ustawień.
+ */
+function kodSepa(kwotaEur, tytul) {
+  const { platnosc } = ustawienia();
+  const iban = String(platnosc.kontoEur || '').replace(/\s+/g, '').toUpperCase();
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(iban) || !(kwotaEur > 0) || kwotaEur > 999999999.99) return '';
+  const nazwa = String(platnosc.odbiorcaEur || platnosc.odbiorca || '').trim().slice(0, 70);
+  if (!nazwa) return '';
+  return ['BCD', '002', '1', 'SCT', String(platnosc.swift || '').replace(/\s+/g, '').toUpperCase().slice(0, 11), nazwa, iban,
+    'EUR' + kwotaEur.toFixed(2), '', '', String(tytul).slice(0, 140)].join('\n');
+}
+
 function zaladujQr() {
   if (window.qrcode) return Promise.resolve(window.qrcode);
   return new Promise((ok, nie) => {
     const sc = document.createElement('script');
     sc.src = 'vendor/qrcode.js';
-    sc.onload = () => ok(window.qrcode);
+    // UTF-8 – polskie litery w nazwie odbiorcy (kod SEPA/EPC wymaga UTF-8)
+    sc.onload = () => { if (window.qrcode.stringToBytesFuncs?.['UTF-8']) window.qrcode.stringToBytes = window.qrcode.stringToBytesFuncs['UTF-8']; ok(window.qrcode); };
     sc.onerror = () => nie(new Error('Nie udało się wczytać generatora kodów QR.'));
     document.head.appendChild(sc);
   });
 }
-const svgQr = (qr, tekst) => { const q = qr(0, 'M'); q.addData(tekst, 'Byte'); q.make(); return q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); };
+const svgQr = (qr, tekst) => { if (qr.stringToBytesFuncs?.['UTF-8']) qr.stringToBytes = qr.stringToBytesFuncs['UTF-8']; const q = qr(0, 'M'); q.addData(tekst, 'Byte'); q.make(); return q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); };
 async function pokazQrPlatnosci() {
   const kw = kwotyPlatnosci();
   const doZaplaty = zaokr(suma() - zaplaconoNaMiejscu(kw));
@@ -90,26 +105,37 @@ async function pokazQrPlatnosci() {
   const { platnosc } = ustawienia();
   let qr;
   try { qr = await zaladujQr(); } catch (err) { toast(err.message, 'blad', 5000); return; }
-  const przelew = kodPrzelewu(doZaplaty, numer);
+  if (!(kursEur() > 0) || kursZapisany()?.pobrano !== dataLok()) await pobierzKurs();
+  const zamEur = s.waluta === 'EUR';
+  // kwota w euro: w zamówieniu w euro – kwota z zamówienia (bez części zapłaconej na miejscu); w złotówkach – po kursie NBP
+  const doZaplatyEur = zamEur && isFinite(sumaEur()) ? Math.max(0, Math.round(sumaEur() * (doZaplaty / suma()) * 100) / 100)
+    : kursEur() > 0 ? Math.ceil(doZaplaty / kursEur()) : NaN;
+  const przelew = zamEur ? '' : kodPrzelewu(doZaplaty, numer);
+  const sepa = isFinite(doZaplatyEur) ? kodSepa(doZaplatyEur, numer) : '';
   const revolut = linkRevolut(platnosc.revolut);
-  // zakładka na start: Revolut, gdy klient płaci Revolutem; inaczej przelew w aplikacji banku
-  const start = revolut && kw.some(p => p.forma === 'Revolut' && !p.zaplacone) ? 'revolut' : przelew ? 'bank' : 'strona';
-  const strona = linkPlatnosci({ id: numer }, doZaplaty, false, false);
+  // zakładka na start: Revolut, gdy klient płaci Revolutem; zamówienie w euro – SEPA; inaczej przelew w polskiej aplikacji banku
+  const start = revolut && kw.some(p => p.forma === 'Revolut' && !p.zaplacone) ? 'revolut' : zamEur && sepa ? 'sepa' : przelew ? 'bank' : 'strona';
+  const strona = linkPlatnosci({ id: numer }, zamEur ? doZaplatyEur : doZaplaty, zamEur, zamEur);
+  const euroTxt = v => v.toFixed(2).replace('.', ',') + ' €';
   const html = `<div class="qr-platnosc">
-    <p class="qr-kwota">${esc(kwotaTxt(doZaplaty))}<small>zamówienie ${esc(numer)}</small></p>
+    <p class="qr-kwota">${esc(zamEur ? euroTxt(doZaplatyEur) : kwotaTxt(doZaplaty))}<small>zamówienie ${esc(numer)}${!zamEur && isFinite(doZaplatyEur) ? ` · ≈ ${esc(euroTxt(doZaplatyEur))}` : ''}</small></p>
     <div class="chipy male qr-zakladki">
-      ${przelew ? `<button type="button" class="chip" data-qr="bank" aria-pressed="${start === 'bank'}">Przelew – aplikacja banku</button>` : ''}
-      <button type="button" class="chip" data-qr="strona" aria-pressed="${start === 'strona'}">BLIK i dane do przelewu</button>
+      ${przelew ? `<button type="button" class="chip" data-qr="bank" aria-pressed="${start === 'bank'}">Polski bank</button>` : ''}
+      ${sepa ? `<button type="button" class="chip" data-qr="sepa" aria-pressed="${start === 'sepa'}">Bank zagraniczny (SEPA €)</button>` : ''}
+      <button type="button" class="chip" data-qr="strona" aria-pressed="${start === 'strona'}">${zamEur ? 'Dane do przelewu' : 'BLIK i dane do przelewu'}</button>
       ${revolut ? `<button type="button" class="chip" data-qr="revolut" aria-pressed="${start === 'revolut'}">Revolut</button>` : ''}
     </div>
+    ${sepa ? `<div class="qr-kod" data-qr-kod="sepa" ${start === 'sepa' ? '' : 'hidden'}>${svgQr(qr, sepa)}
+      <p>Dla klienta z zagranicy: skanuje kod <b>w aplikacji swojego banku</b> („Scan & pay”, „GiroCode”, „Photo transfer”) – przelew SEPA w euro wypełni się sam: <b>${esc(euroTxt(doZaplatyEur))}</b> na Twoje konto EUR, w tytule numer zamówienia.
+      Działa w wielu bankach strefy euro (np. w Niemczech, Austrii, Holandii, Belgii), ale nie we wszystkich – gdy bank nie czyta kodu, użyj zakładki Revolut albo „Dane do przelewu”.${zamEur ? '' : ` Kwota po kursie NBP ${esc(String(kursEur()).replace('.', ','))} zł, zaokrąglona w górę.`}</p></div>` : ''}
     ${przelew ? `<div class="qr-kod" data-qr-kod="bank" ${start === 'bank' ? '' : 'hidden'}>${svgQr(qr, przelew)}
       <p>Klient skanuje kod <b>w aplikacji swojego banku</b> (opcja „Skanuj”, „Płatność QR” albo „Zdjęcie faktury”) – przelew wypełni się sam: odbiorca, konto, kwota i tytuł.</p></div>` : ''}
     <div class="qr-kod" data-qr-kod="strona" ${start === 'strona' ? '' : 'hidden'}>${svgQr(qr, strona)}
-      <p>Klient skanuje kod <b>aparatem telefonu</b> – otworzy się strona z numerem do BLIK-a${platnosc.blik ? ` (${esc(platnosc.blik)})` : ''}, numerem konta, kwotą i tytułem do skopiowania jednym dotknięciem.</p></div>
+      <p>Klient skanuje kod <b>aparatem telefonu</b> – otworzy się strona ${zamEur ? 'po angielsku z IBAN-em, BIC-iem' : `z numerem do BLIK-a${platnosc.blik ? ` (${esc(platnosc.blik)})` : ''}, numerem konta`}, kwotą i tytułem do skopiowania jednym dotknięciem.</p></div>
     ${revolut ? `<div class="qr-kod" data-qr-kod="revolut" ${start === 'revolut' ? '' : 'hidden'}>${svgQr(qr, revolut)}
       <p class="qr-link">kod prowadzi do: <a href="${esc(revolut)}" target="_blank" rel="noopener">${esc(revolut.replace('https://', ''))}</a></p>
       <p class="qr-opis-revolut">W opisie płatności wpisz:<b>${esc(numer)}</b></p>
-      <p>Klient skanuje kod <b>zwykłym aparatem telefonu</b> (nie skanerem w aplikacji Revolut – ten czyta tylko kody Revoluta) i dotyka linku – otworzy się płatność do Ciebie w Revolucie. Kwotę <b>${esc(kwotaTxt(doZaplaty))}</b> i numer zamówienia (powyżej) wpisuje sam – Revolut nie pozwala podać ich w kodzie.</p>
+      <p>Klient skanuje kod <b>zwykłym aparatem telefonu</b> (nie skanerem w aplikacji Revolut – ten czyta tylko kody Revoluta) i dotyka linku – otworzy się płatność do Ciebie w Revolucie. Kwotę <b>${esc(zamEur ? euroTxt(doZaplatyEur) : kwotaTxt(doZaplaty))}</b> i numer zamówienia (powyżej) wpisuje sam – Revolut nie pozwala podać ich w kodzie.</p>
       <details class="qr-revolut-strona"><summary>Klient woli skopiować numer? Pokaż kod do strony z numerem</summary>${svgQr(qr, strona + '&m=r')}
         <p>Ten kod skanuje się <b>aparatem telefonu</b> (nie w Revolucie) – otworzy stronę z numerem do skopiowania i przyciskiem „Otwórz Revolut”.</p></details></div>` : ''}
   </div>`;
@@ -385,7 +411,7 @@ function htmlPlatnosci() {
     <p class="podpowiedz" id="opis-platnosci">${razem - zapl > 0.005
       ? `Zapłacone teraz: ${kwotaTxt(zapl)} · do zapłaty: <b>${kwotaTxt(zaokr(razem - zapl))}</b> – w wiadomości będą dane do przelewu i BLIK.`
       : 'Całość zapłacona – wiadomość będzie potwierdzeniem zakupu.'}</p>
-    ${razem - zapl > 0.005 && s.waluta !== 'EUR' && kw.some(p => p.forma !== POBRANIE) ? '<button type="button" class="drugorzedny szeroki qr-przycisk" data-akcja="qr-platnosc">📱 Pokaż klientowi kod QR do zapłaty (BLIK / przelew)</button>' : ''}`;
+    ${razem - zapl > 0.005 && kw.some(p => p.forma !== POBRANIE) ? `<button type="button" class="drugorzedny szeroki qr-przycisk" data-akcja="qr-platnosc">📱 Pokaż klientowi kod QR do zapłaty (${s.waluta === 'EUR' ? 'przelew €, Revolut' : 'BLIK, przelew, Revolut'})</button>` : ''}`;
 }
 
 /** Magazyn zamówienia: wybrany ręcznie → przy wysyłce wg osoby wysyłającej (Grażynka = GR, Olek = INC) → z Ustawień. */
